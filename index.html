@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Since Scripts</title>
   <meta name="description" content="Search, browse and discover handy scripts from this repo" />
+  <!-- Inter + Noto Sans SC -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root{
       --accent:#2563eb; /* blue */
@@ -15,39 +17,34 @@
       --bg:#ffffff;
       --card:#ffffff; /* fully opaque card background */
       --dot-color: 15,23,42; /* rgb for dots (will be used with alpha variable) */
-      --dot-size: 3px; /* smaller dot radius */
-      --dot-alpha: 0.06; /* lighter dots */
+      --dot-size: 0.5px; /* smaller dot radius */
+      --dot-alpha: 0.04; /* lighter dots */
+      --dot-spacing: 12px;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{
-      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      margin:0; font-family: "Inter", "Noto Sans SC", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
       color:var(--text); background:var(--bg);
       -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      position:relative;
+      z-index:0;
+    }
+
+    /* dotted background layer placed behind everything */
+    body::before{
+      content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+      background-image:
+        radial-gradient(circle, rgba(var(--dot-color), var(--dot-alpha)) var(--dot-size), transparent calc(var(--dot-size) + 1px));
+      background-size: var(--dot-spacing) var(--dot-spacing);
+      background-position: center;
+      mix-blend-mode: normal;
+      opacity:1;
     }
 
     .hero{
       position:relative; text-align:center; padding:48px 20px; width:100%; max-width:920px; margin:28px auto 0; isolation:isolate;
-      display:block;
-    }
-    /* dotted background with center->edge fade */
-    .hero::before{
-      content:""; position:absolute; left:50%; top:0; transform:translateX(-50%);
-      width:120%; height:160%;
-      z-index:-1;
-      /* smaller, lighter dots */
-      background-image:
-        radial-gradient(circle at center, rgba(var(--dot-color), var(--dot-alpha)) var(--dot-size), transparent calc(var(--dot-size) + 1px));
-      background-size:12px 12px;
-      /* slightly reduce overall intensity so dots are subtle */
-      opacity:0.9;
-      pointer-events:none;
-      /* mask to fade dots toward edges */
-      -webkit-mask-image: radial-gradient(circle at center, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 45%, rgba(0,0,0,0) 85%);
-      mask-image: radial-gradient(circle at center, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 45%, rgba(0,0,0,0) 85%);
-    }
-    .hero::after{
-      content:""; position:absolute; inset:0; z-index:-2; background:transparent; pointer-events:none;
+      display:block; z-index:1; /* ensure content is above dots */
     }
 
     h1{font-size:48px; line-height:1.08; margin:0 0 12px; font-weight:800; letter-spacing:-.02em}
@@ -57,11 +54,7 @@
     .search{
       display:flex; align-items:center; gap:0; width:100%; max-width:680px; margin:0 auto; background:#fff;
       border:1px solid var(--border); border-radius:12px; box-shadow:0 6px 18px rgba(4,6,15,.04);
-      overflow:hidden;
-    }
-    .search .select {
-      height:52px; min-width:110px; border-right:1px solid var(--border); padding:0 12px; background:transparent; appearance:none;
-      font-size:14px; color:var(--text); display:flex; align-items:center; justify-content:center;
+      overflow:hidden; z-index:1; position:relative;
     }
 
     .icon{padding:0 10px 0 14px; color:#a8b3b9; display:flex; align-items:center}
@@ -78,13 +71,13 @@
     .meta{margin-top:12px; color:var(--muted); font-size:14px}
     .badge{display:inline-block; background:#f1f5f9; color:var(--accent-600); padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; margin-right:8px}
 
-    .container{width:100%; max-width:980px; margin:18px auto 48px; padding:0 16px}
+    .container{width:100%; max-width:980px; margin:18px auto 48px; padding:0 16px; z-index:1; position:relative}
     /* single-column flow like original layout */
     .results{margin-top:18px; display:flex; flex-direction:column; gap:14px}
 
     .card{
       background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px;
-      box-shadow:0 1px 2px rgba(4,6,15,.04); display:flex; flex-direction:column; gap:10px;
+      box-shadow:0 1px 2px rgba(4,6,15,.04); display:flex; flex-direction:column; gap:10px; position:relative; z-index:2;
     }
     .card h3{margin:0 0 4px; font-size:18px}
     .card p{margin:0; color:var(--muted); font-size:14px}
@@ -103,7 +96,7 @@
 
     .hl{ color:var(--accent); font-weight:700 }
 
-    @media (max-width:680px){ h1{font-size:36px} .sub{font-size:16px} .copy-btn{padding:8px 10px} .search .select{min-width:88px} }
+    @media (max-width:680px){ h1{font-size:36px} .sub{font-size:16px} .copy-btn{padding:8px 10px} }
   </style>
 </head>
 <body>
@@ -113,12 +106,6 @@
 
     <div class="search-wrap">
       <form id="searchForm" class="search" role="search">
-        <select id="scope" class="select" aria-label="Search scope">
-          <option value="all">All</option>
-          <option value="name">Name</option>
-          <option value="description">Description</option>
-          <option value="dir">Directory</option>
-        </select>
         <span class="icon" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         </span>
@@ -142,7 +129,6 @@
     const metaEl = document.getElementById('metaText');
     const qInput = document.getElementById('q');
     const form = document.getElementById('searchForm');
-    const scopeSel = document.getElementById('scope');
     let all = [];
 
     function readQuery(){
@@ -254,18 +240,12 @@
 
     function search(q){
       const term = (q||'').toLowerCase();
-      const scope = scopeSel.value || 'all';
+      const scope = 'all'; // search across all fields; search scope selector removed
       const list = term ? all.filter(s => {
         if(scope==='all'){
           return (s.name && s.name.toLowerCase().includes(term)) ||
                  (s.description && s.description.toLowerCase().includes(term)) ||
                  (s.dir && s.dir.toLowerCase().includes(term));
-        }else if(scope==='name'){
-          return s.name && s.name.toLowerCase().includes(term);
-        }else if(scope==='description'){
-          return s.description && s.description.toLowerCase().includes(term);
-        }else if(scope==='dir'){
-          return s.dir && s.dir.toLowerCase().includes(term);
         }
         return false;
       }) : all;
@@ -289,7 +269,6 @@
     }, 300);
 
     qInput.addEventListener('input', debouncedInput);
-    scopeSel.addEventListener('change', ()=>{ const q = qInput.value.trim(); writeQuery(q); search(q); });
 
     // Robust scripts.json loading: try local, then raw GitHub, and show helpful meta text
     (async function(){
@@ -321,9 +300,6 @@
         metaEl.textContent = `${all.length} scripts available`;
         const q0 = readQuery();
         if(q0) qInput.value = q0;
-        // if there's a q0 also consider scope param
-        const u = new URL(window.location);
-        const scope0 = u.searchParams.get('scope'); if(scope0) try{ scopeSel.value = scope0; }catch(e){}
         search(q0);
       }catch(err){
         all = [];
