@@ -21,10 +21,10 @@ jobs:
           persist-credentials: true
 
       - name: Make indexer executable
-        run: chmod +x scripts/indexer/generate_index.sh || true
+        run: chmod +x tools/indexer/generate_index.sh || true
 
       - name: Run index generator
-        run: scripts/indexer/generate_index.sh
+        run: tools/indexer/generate_index.sh
 
       - name: Stage generated files
         run: |
