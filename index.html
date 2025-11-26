@@ -7,7 +7,6 @@
   <meta name="description" content="Search, browse and discover handy scripts from this repo" />
   <style>
     :root{
-      /* Reverted palette */
       --accent:#2563eb; /* blue */
       --accent-600:#1d4ed8;
       --text:#0f172a;
@@ -23,26 +22,28 @@
       margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
       color:var(--text); background:var(--bg);
       -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-      /* Restore original flow (not vertically centered) */
     }
 
     .hero{
       position:relative; text-align:center; padding:48px 20px; width:100%; max-width:920px; margin:28px auto 0; isolation:isolate;
       display:block;
     }
+    /* dotted background with center->edge fade */
     .hero::before{
       content:""; position:absolute; left:50%; top:0; transform:translateX(-50%);
       width:120%; height:160%;
       z-index:-1;
-      /* gray dots */
-      background-image:radial-gradient(circle at 0 0, rgba(110,118,125,0.95) 2px, transparent 2px);
-      background-size:16px 16px; opacity:0.45;
+      background-image:
+        radial-gradient(circle at center, rgba(110,118,125,0.95) 2px, transparent 2px);
+      background-size:16px 16px;
+      opacity:0.6;
       pointer-events:none;
+      /* mask to fade dots toward edges */
+      -webkit-mask-image: radial-gradient(circle at center, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 45%, rgba(0,0,0,0) 85%);
+      mask-image: radial-gradient(circle at center, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 45%, rgba(0,0,0,0) 85%);
     }
     .hero::after{
-      content:""; position:absolute; inset:0; z-index:-2;
-      background:transparent;
-      pointer-events:none;
+      content:""; position:absolute; inset:0; z-index:-2; background:transparent; pointer-events:none;
     }
 
     h1{font-size:48px; line-height:1.08; margin:0 0 12px; font-weight:800; letter-spacing:-.02em}
@@ -69,18 +70,29 @@
     .badge{display:inline-block; background:#f1f5f9; color:var(--accent-600); padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; margin-right:8px}
 
     .container{width:100%; max-width:980px; margin:18px auto 48px; padding:0 16px}
-    .results{margin-top:18px; display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px}
+    /* single-column flow like original layout */
+    .results{margin-top:18px; display:flex; flex-direction:column; gap:14px}
+
     .card{
-      background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px;
-      box-shadow:0 1px 2px rgba(4,6,15,.04);
+      background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px;
+      box-shadow:0 1px 2px rgba(4,6,15,.04); display:flex; flex-direction:column; gap:10px;
     }
-    .card h3{margin:0 0 6px; font-size:18px}
-    .card p{margin:0 0 8px; color:var(--muted); font-size:14px}
-    .card .meta-row{font-size:12px; color:#8aa8b2}
-    .card a{color:var(--accent-600); text-decoration:none; font-weight:600}
+    .card h3{margin:0 0 4px; font-size:18px}
+    .card p{margin:0; color:var(--muted); font-size:14px}
+
+    /* copy command area */
+    .copy-box{background:#f8fafb; border:1px solid #e6eef2; border-radius:8px; padding:10px 12px; display:flex; align-items:center; gap:10px}
+    .cmd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", monospace; font-size:13px; color:#0b1720; white-space:pre-wrap; word-break:break-all; flex:1}
+    .copy-btn{background:var(--accent); color:#fff; border:0; padding:8px 10px; border-radius:8px; cursor:pointer; font-weight:700}
+    .copy-btn:active{transform:translateY(1px)}
+
+    .card-footer{display:flex; gap:12px; font-size:13px; color:var(--muted); align-items:center; justify-content:space-between; flex-wrap:wrap}
+    .meta-left{display:flex; gap:10px; align-items:center}
+    .meta-right{color:#8aa8b2; font-size:13px}
+
     .empty{margin:24px 0; text-align:center; color:var(--muted)}
 
-    @media (max-width:680px){ h1{font-size:36px} .sub{font-size:16px} }
+    @media (max-width:680px){ h1{font-size:36px} .sub{font-size:16px} .copy-btn{padding:8px 10px} }
   </style>
 </head>
 <body>
@@ -99,7 +111,6 @@
       <div class="meta"><span class="badge">Info</span><span id="metaText">Loading…</span></div>
     </div>
 
-    <!-- Results container sits outside hero to allow hero to remain compact while page centered -->
   </header>
 
   <main class="container">
@@ -126,6 +137,27 @@
       history.replaceState(null, '', u);
     }
 
+    function escapeHTML(str){
+      return (str+"").replace(/[&<>\"']/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]));
+    }
+
+    function formatDate(d){
+      try{
+        const dt = new Date(d);
+        if(isNaN(dt)) return d||'';
+        return dt.toLocaleDateString();
+      }catch(e){return d||''}
+    }
+
+    function buildCommand(s){
+      // Prefer explicit raw/url fields if provided, else guess a raw install.sh in the dir
+      const baseRaw = s.raw || s.url || (s.dir ? `https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/${encodeURIComponent(s.dir)}/install.sh` : '');
+      if(!baseRaw) return '';
+      const curl = `curl -sSL ${baseRaw} | bash`;
+      const wget = `wget -qO- ${baseRaw} | bash`;
+      return curl + '\n' + wget;
+    }
+
     function render(list){
       resultsEl.innerHTML = '';
       if(!list || list.length===0){
@@ -137,8 +169,56 @@
       list.forEach(s=>{
         const a = document.createElement('article');
         a.className = 'card';
-        const gh = `https://github.com/wangsyiiz/since-scripts/tree/main/${s.dir||''}`;
-        a.innerHTML = `\n          <h3>${escapeHTML(s.name||'Untitled')}</h3>\n          <p>${escapeHTML(s.description||'')}</p>\n          <div class=\\"meta-row\\">${s.dir?`Dir: <code>${escapeHTML(s.dir)}</code>`:''}${s.files?` · Files: <code>${escapeHTML(s.files)}</code>`:''}</div>\n          <div style=\\"margin-top:8px\\"><a href=\\"${gh}\\" target=\\"_blank\\" rel=\\"noopener\\">View on GitHub →</a></div>\n        `;
+
+        const title = escapeHTML(s.name||'Untitled');
+        const desc = escapeHTML(s.description||'');
+        const cmdText = buildCommand(s);
+        const footerLeft = [];
+        if(s.version) footerLeft.push(`v${escapeHTML(s.version)}`);
+        if(s.updated) footerLeft.push(formatDate(s.updated));
+        const footerRight = s.author ? escapeHTML(s.author) : '';
+
+        a.innerHTML = `\n          <div>\n            <h3>${title}</h3>\n            <p>${desc}</p>\n          </div>\n        `;
+
+        if(cmdText){
+          const box = document.createElement('div');
+          box.className = 'copy-box';
+          const pre = document.createElement('div');
+          pre.className = 'cmd';
+          pre.textContent = cmdText;
+          const btn = document.createElement('button');
+          btn.className = 'copy-btn';
+          btn.type = 'button';
+          btn.textContent = 'Copy';
+          btn.addEventListener('click', async ()=>{
+            try{
+              await navigator.clipboard.writeText(pre.textContent);
+              btn.textContent = 'Copied!';
+              setTimeout(()=>btn.textContent='Copy',1500);
+            }catch(e){
+              console.error('copy failed', e);
+              // fallback
+              const ta = document.createElement('textarea'); ta.value = pre.textContent;
+              document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); btn.textContent='Copied!'; }catch(e2){ alert('Copy failed.'); }
+              document.body.removeChild(ta);
+              setTimeout(()=>btn.textContent='Copy',1500);
+            }
+          });
+          box.appendChild(pre);
+          box.appendChild(btn);
+          a.appendChild(box);
+        }
+
+        const footer = document.createElement('div');
+        footer.className = 'card-footer';
+        const left = document.createElement('div'); left.className='meta-left';
+        const right = document.createElement('div'); right.className='meta-right';
+        left.textContent = footerLeft.join(' · ');
+        right.textContent = footerRight;
+        footer.appendChild(left);
+        footer.appendChild(right);
+        a.appendChild(footer);
+
         frag.appendChild(a);
       });
       resultsEl.appendChild(frag);
@@ -152,10 +232,6 @@
         (s.dir && s.dir.toLowerCase().includes(term))
       ) : all;
       render(list);
-    }
-
-    function escapeHTML(str){
-      return (str+"").replace(/[&<>\\"']/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]));
     }
 
     form.addEventListener('submit', (e)=>{
@@ -185,7 +261,6 @@
       }
 
       try{
-        // first attempt local (use cache-bust to avoid stale CDN)
         try{
           const ts = Math.floor(Date.now()/60000); // minute resolution
           all = await fetchJson(`${local}?v=${ts}`);
