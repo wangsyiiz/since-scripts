@@ -1,25 +1,22 @@
 # since-scripts
 
+A collection of small shell scripts and utilities maintained by wangsyiiz.
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A collection of useful shell scripts and related metadata for easy sharing and installation.
+## Overview
 
-Purpose
-- Host and share reusable scripts with metadata so others can easily discover and run them.
+This repository collects useful scripts and tooling for quick tasks. Each script
+should include a metadata file and basic usage instructions.
 
-Quick start
+## Release tags
 
-Clone the repository:
+Automated releases are created on push to `main`. Tag format: `YYYY.MM.DD.NUMBER` — e.g. `2025.11.26.123`.
 
-    git clone https://github.com/wangsyiiz/since-scripts.git
-    cd since-scripts
+## Contributing
 
-Run the example script:
+See CONTRIBUTING.md for contribution guidelines. Pull requests are preferred.
 
-    bash scripts/hello-world/install.sh
+## License
 
-Contributing
-- Please read CONTRIBUTING.md for the contribution workflow, metadata format and linting requirements.
-
-License
-- This repository is licensed under the MIT License (see LICENSE file). By contributing you agree to license your contributions under the MIT License.
+This project is licensed under the MIT License — see the LICENSE file for details.

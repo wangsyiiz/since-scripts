@@ -15,12 +15,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Get UTC date
+        run: echo "DATE=$(date -u +%Y.%m.%d)" >> $GITHUB_ENV
+
       - name: Create Release
-        # Creates a GitHub Release using the run number as a tag (automated)
         uses: ncipollo/release-action@v1
         with:
-          tag: v${{ github.run_number }}
-          name: Release ${{ github.run_number }}
+          tag: ${{ env.DATE }}.${{ github.run_number }}
+          name: Release ${{ env.DATE }}.${{ github.run_number }}
           body: |
             Automated release created by workflow on push to main.
             Commit: ${{ github.sha }}
