@@ -55,6 +55,11 @@
       border:1px solid var(--border); border-radius:12px; box-shadow:0 6px 18px rgba(4,6,15,.04);
       overflow:hidden;
     }
+    .search .select {
+      height:52px; min-width:110px; border-right:1px solid var(--border); padding:0 12px; background:transparent; appearance:none;
+      font-size:14px; color:var(--text); display:flex; align-items:center; justify-content:center;
+    }
+
     .icon{padding:0 10px 0 14px; color:#a8b3b9; display:flex; align-items:center}
     .search input{
       flex:1; height:52px; border:0; outline:none; font-size:16px; color:var(--text);
@@ -92,7 +97,9 @@
 
     .empty{margin:24px 0; text-align:center; color:var(--muted)}
 
-    @media (max-width:680px){ h1{font-size:36px} .sub{font-size:16px} .copy-btn{padding:8px 10px} }
+    .hl{ color:var(--accent); font-weight:700 }
+
+    @media (max-width:680px){ h1{font-size:36px} .sub{font-size:16px} .copy-btn{padding:8px 10px} .search .select{min-width:88px} }
   </style>
 </head>
 <body>
@@ -102,6 +109,12 @@
 
     <div class="search-wrap">
       <form id="searchForm" class="search" role="search">
+        <select id="scope" class="select" aria-label="Search scope">
+          <option value="all">All</option>
+          <option value="name">Name</option>
+          <option value="description">Description</option>
+          <option value="dir">Directory</option>
+        </select>
         <span class="icon" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         </span>
@@ -125,6 +138,7 @@
     const metaEl = document.getElementById('metaText');
     const qInput = document.getElementById('q');
     const form = document.getElementById('searchForm');
+    const scopeSel = document.getElementById('scope');
     let all = [];
 
     function readQuery(){
@@ -140,6 +154,7 @@
     function escapeHTML(str){
       return (str+"").replace(/[&<>\"']/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]));
     }
+    function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
     function formatDate(d){
       try{
@@ -149,16 +164,21 @@
       }catch(e){return d||''}
     }
 
-    function buildCommand(s){
-      // Prefer explicit raw/url fields if provided, else guess a raw install.sh in the dir
+    function buildCommandObj(s){
       const baseRaw = s.raw || s.url || (s.dir ? `https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/${encodeURIComponent(s.dir)}/install.sh` : '');
-      if(!baseRaw) return '';
-      const curl = `curl -sSL ${baseRaw} | bash`;
-      const wget = `wget -qO- ${baseRaw} | bash`;
-      return curl + '\n' + wget;
+      if(!baseRaw) return null;
+      return { curl: `curl -sSL ${baseRaw} | bash`, wget: `wget -qO- ${baseRaw} | bash` };
     }
 
-    function render(list){
+    function highlightHTML(text, term){
+      if(!term) return escapeHTML(text);
+      const tokens = (term||'').split(/\s+/).filter(Boolean).map(t=>escapeRegExp(t));
+      if(tokens.length===0) return escapeHTML(text);
+      const re = new RegExp('(' + tokens.join('|') + ')', 'ig');
+      return escapeHTML(text).replace(re, '<span class="hl">$1</span>');
+    }
+
+    function render(list, term){
       resultsEl.innerHTML = '';
       if(!list || list.length===0){
         emptyEl.style.display='block';
@@ -166,55 +186,52 @@
       }
       emptyEl.style.display='none';
       const frag = document.createDocumentFragment();
+      const q = term || '';
       list.forEach(s=>{
         const a = document.createElement('article');
         a.className = 'card';
 
-        const title = escapeHTML(s.name||'Untitled');
-        const desc = escapeHTML(s.description||'');
-        const cmdText = buildCommand(s);
-        const footerLeft = [];
-        if(s.version) footerLeft.push(`v${escapeHTML(s.version)}`);
-        if(s.updated) footerLeft.push(formatDate(s.updated));
-        const footerRight = s.author ? escapeHTML(s.author) : '';
+        const titleHTML = highlightHTML(s.name||'Untitled', q);
+        const descHTML = highlightHTML(s.description||'', q);
 
-        a.innerHTML = `\n          <div>\n            <h3>${title}</h3>\n            <p>${desc}</p>\n          </div>\n        `;
+        a.innerHTML = `\n          <div>\n            <h3>${titleHTML}</h3>\n            <p>${descHTML}</p>\n          </div>\n        `;
 
-        if(cmdText){
-          const box = document.createElement('div');
-          box.className = 'copy-box';
-          const pre = document.createElement('div');
-          pre.className = 'cmd';
-          pre.textContent = cmdText;
-          const btn = document.createElement('button');
-          btn.className = 'copy-btn';
-          btn.type = 'button';
-          btn.textContent = 'Copy';
-          btn.addEventListener('click', async ()=>{
-            try{
-              await navigator.clipboard.writeText(pre.textContent);
-              btn.textContent = 'Copied!';
-              setTimeout(()=>btn.textContent='Copy',1500);
-            }catch(e){
-              console.error('copy failed', e);
-              // fallback
-              const ta = document.createElement('textarea'); ta.value = pre.textContent;
-              document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); btn.textContent='Copied!'; }catch(e2){ alert('Copy failed.'); }
-              document.body.removeChild(ta);
-              setTimeout(()=>btn.textContent='Copy',1500);
-            }
+        const cmdObj = buildCommandObj(s);
+        if(cmdObj){
+          // curl box
+          const curlBox = document.createElement('div');
+          curlBox.className = 'copy-box';
+          const curlCmd = document.createElement('div'); curlCmd.className='cmd'; curlCmd.textContent = cmdObj.curl;
+          const curlBtn = document.createElement('button'); curlBtn.className='copy-btn'; curlBtn.type='button'; curlBtn.textContent='Copy curl';
+          curlBtn.addEventListener('click', async ()=>{
+            try{ await navigator.clipboard.writeText(curlCmd.textContent); curlBtn.textContent='Copied!'; setTimeout(()=>curlBtn.textContent='Copy curl',1500); }
+            catch(e){ fallbackCopy(curlCmd.textContent, curlBtn, 'Copy curl'); }
           });
-          box.appendChild(pre);
-          box.appendChild(btn);
-          a.appendChild(box);
+          curlBox.appendChild(curlCmd); curlBox.appendChild(curlBtn);
+          a.appendChild(curlBox);
+
+          // wget box
+          const wgetBox = document.createElement('div');
+          wgetBox.className = 'copy-box';
+          const wgetCmd = document.createElement('div'); wgetCmd.className='cmd'; wgetCmd.textContent = cmdObj.wget;
+          const wgetBtn = document.createElement('button'); wgetBtn.className='copy-btn'; wgetBtn.type='button'; wgetBtn.textContent='Copy wget';
+          wgetBtn.addEventListener('click', async ()=>{
+            try{ await navigator.clipboard.writeText(wgetCmd.textContent); wgetBtn.textContent='Copied!'; setTimeout(()=>wgetBtn.textContent='Copy wget',1500); }
+            catch(e){ fallbackCopy(wgetCmd.textContent, wgetBtn, 'Copy wget'); }
+          });
+          wgetBox.appendChild(wgetCmd); wgetBox.appendChild(wgetBtn);
+          a.appendChild(wgetBox);
         }
 
         const footer = document.createElement('div');
         footer.className = 'card-footer';
         const left = document.createElement('div'); left.className='meta-left';
         const right = document.createElement('div'); right.className='meta-right';
+        const footerLeft = [];
+        if(s.version) footerLeft.push(`v${s.version}`);
+        if(s.updated) footerLeft.push(formatDate(s.updated));
         left.textContent = footerLeft.join(' · ');
-        right.textContent = footerRight;
+        right.textContent = s.author || '';
         footer.appendChild(left);
         footer.appendChild(right);
         a.appendChild(footer);
@@ -224,14 +241,32 @@
       resultsEl.appendChild(frag);
     }
 
+    function fallbackCopy(text, btn, defaultLabel){
+      try{
+        const ta = document.createElement('textarea'); ta.value = text; ta.style.position='fixed'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        btn.textContent='Copied!'; setTimeout(()=>btn.textContent=defaultLabel,1500);
+      }catch(e){ alert('Copy failed.'); }
+    }
+
     function search(q){
       const term = (q||'').toLowerCase();
-      const list = term ? all.filter(s =>
-        (s.name && s.name.toLowerCase().includes(term)) ||
-        (s.description && s.description.toLowerCase().includes(term)) ||
-        (s.dir && s.dir.toLowerCase().includes(term))
-      ) : all;
-      render(list);
+      const scope = scopeSel.value || 'all';
+      const list = term ? all.filter(s => {
+        if(scope==='all'){
+          return (s.name && s.name.toLowerCase().includes(term)) ||
+                 (s.description && s.description.toLowerCase().includes(term)) ||
+                 (s.dir && s.dir.toLowerCase().includes(term));
+        }else if(scope==='name'){
+          return s.name && s.name.toLowerCase().includes(term);
+        }else if(scope==='description'){
+          return s.description && s.description.toLowerCase().includes(term);
+        }else if(scope==='dir'){
+          return s.dir && s.dir.toLowerCase().includes(term);
+        }
+        return false;
+      }) : all;
+      render(list, q);
+      metaEl.textContent = `${list.length} scripts shown`;
     }
 
     form.addEventListener('submit', (e)=>{
@@ -240,6 +275,17 @@
       writeQuery(q);
       search(q);
     });
+
+    function debounce(fn, wait){ let t; return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), wait); }; }
+
+    const debouncedInput = debounce(()=>{
+      const q = qInput.value.trim();
+      writeQuery(q);
+      search(q);
+    }, 300);
+
+    qInput.addEventListener('input', debouncedInput);
+    scopeSel.addEventListener('change', ()=>{ const q = qInput.value.trim(); writeQuery(q); search(q); });
 
     // Robust scripts.json loading: try local, then raw GitHub, and show helpful meta text
     (async function(){
@@ -271,6 +317,9 @@
         metaEl.textContent = `${all.length} scripts available`;
         const q0 = readQuery();
         if(q0) qInput.value = q0;
+        // if there's a q0 also consider scope param
+        const u = new URL(window.location);
+        const scope0 = u.searchParams.get('scope'); if(scope0) try{ scopeSel.value = scope0; }catch(e){}
         search(q0);
       }catch(err){
         all = [];
