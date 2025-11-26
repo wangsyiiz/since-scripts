@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Scripts Index</title>
+  <style>body{font-family:Arial,Helvetica,sans-serif;margin:40px}pre{background:#f6f6f6;padding:10px}</style>
+</head>
+<body>
+  <h1>Scripts Index</h1>
+  <div id="content"></div>
+  <script>
+    fetch('scripts.json').then(r=>r.json()).then(list=>{
+      const c=document.getElementById('content');
+      if(!list||list.length===0){c.innerHTML='<p>No scripts found.</p>';return}
+      list.forEach(s=>{
+        const el=document.createElement('div');
+        el.innerHTML = `<h2>${s.name}</h2><p>${s.description||''}</p><p><strong>Dir:</strong> ${s.dir}</p><p><strong>Files:</strong> ${s.files||''}</p><hr>`;
+        c.appendChild(el);
+      });
+    }).catch(e=>{document.getElementById('content').innerText='Failed to load scripts.json: '+e});
+  </script>
+</body>
+</html>
