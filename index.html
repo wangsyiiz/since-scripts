@@ -7,31 +7,43 @@
   <meta name="description" content="Search, browse and discover handy scripts from this repo" />
   <style>
     :root{
-      --accent:#f97316; /* orange */
-      --accent-600:#ea580c;
-      --text:#111827;   /* gray-900 */
-      --muted:#6b7280;  /* gray-500 */
-      --border:#e5e7eb; /* gray-200 */
-      --bg:#ffffff;
+      /* Fresh, clean palette */
+      --accent:#10b981;     /* emerald-500 */
+      --accent-600:#059669; /* emerald-600 */
+      --text:#0f172a;       /* slate-900 */
+      --muted:#64748b;      /* slate-500 */
+      --border:#e2e8f0;     /* slate-200 */
+      --bg:#f8fafc;         /* slate-50 */
       --card:#ffffff;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{
       margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      color:var(--text); background:var(--bg); display:flex; flex-direction:column;
+      color:var(--text); background:var(--bg);
     }
+
+    /* Center the hero vertically within viewport */
     .hero{
-      position:relative; text-align:center; padding:120px 16px 48px; max-width:860px; margin:0 auto; isolation:isolate;
+      position:relative; text-align:center; padding:64px 16px; max-width:860px; margin:0 auto; isolation:isolate;
+      min-height:70svh; display:flex; flex-direction:column; align-items:center; justify-content:center;
     }
-    /* subtle dotted background, faded outside center */
+    /* stronger dotted background */
     .hero::before{
-      content:""; position:absolute; inset:-120px -160px -80px -160px; z-index:-1;
-      background-image:radial-gradient(rgba(249,115,22,.14) 1px, transparent 1px);
-      background-size:18px 18px; opacity:.6;
-      -webkit-mask-image:radial-gradient(circle at center, rgba(0,0,0,.9) 0%, rgba(0,0,0,.6) 35%, rgba(0,0,0,.2) 60%, transparent 75%);
-              mask-image:radial-gradient(circle at center, rgba(0,0,0,.9) 0%, rgba(0,0,0,.6) 35%, rgba(0,0,0,.2) 60%, transparent 75%);
+      content:""; position:absolute; inset:-140px -180px -100px -180px; z-index:-1;
+      background-image:radial-gradient(rgba(16,185,129,.28) 1.6px, transparent 1.6px);
+      background-size:16px 16px; opacity:.9;
+      -webkit-mask-image:radial-gradient(circle at 50% 50%, rgba(0,0,0,.95) 0%, rgba(0,0,0,.75) 40%, rgba(0,0,0,.35) 65%, transparent 80%);
+              mask-image:radial-gradient(circle at 50% 50%, rgba(0,0,0,.95) 0%, rgba(0,0,0,.75) 40%, rgba(0,0,0,.35) 65%, transparent 80%);
+      pointer-events:none;
     }
+    /* subtle soft tint */
+    .hero::after{
+      content:""; position:absolute; inset:0; z-index:-2;
+      background:radial-gradient(ellipse at center, rgba(16,185,129,.06), transparent 60%);
+      pointer-events:none;
+    }
+
     h1{font-size:44px; line-height:1.15; margin:0 0 12px; font-weight:800; letter-spacing:-.02em}
     .sub{max-width:760px; margin:0 auto; color:var(--muted); font-size:18px; line-height:1.6}
 
@@ -43,16 +55,17 @@
     }
     .icon{padding:0 10px 0 14px; color:#9ca3af; display:flex; align-items:center}
     .search input{
-      flex:1; height:44px; border:0; outline:none; font-size:15px; color:var(--text);
+      flex:1; height:46px; border:0; outline:none; font-size:15px; color:var(--text);
+      background:#fff;
     }
     .search button{
-      height:44px; padding:0 18px; border:0; color:#fff; background:var(--accent); font-weight:700; cursor:pointer;
+      height:46px; padding:0 18px; border:0; color:#fff; background:var(--accent); font-weight:700; cursor:pointer;
       transition:background .15s ease; border-left:1px solid var(--border);
     }
     .search button:hover{background:var(--accent-600)}
 
     .meta{margin-top:10px; color:var(--muted); font-size:14px}
-    .badge{display:inline-block; background:#fde68a; color:#92400e; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; margin-right:6px}
+    .badge{display:inline-block; background:#d1fae5; color:#065f46; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; margin-right:6px}
 
     .container{width:100%; max-width:980px; margin:0 auto; padding:0 16px 48px}
     .results{margin-top:28px; display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px}
@@ -62,7 +75,7 @@
     }
     .card h3{margin:0 0 6px; font-size:18px}
     .card p{margin:0 0 8px; color:var(--muted); font-size:14px}
-    .card .meta-row{font-size:12px; color:#9ca3af}
+    .card .meta-row{font-size:12px; color:#94a3b8}
     .card a{color:var(--accent-600); text-decoration:none; font-weight:600}
     .empty{margin:24px 0; text-align:center; color:var(--muted)}
 
@@ -154,17 +167,28 @@
       search(q);
     });
 
-    // init
-    fetch('scripts.json').then(r=>r.json()).then(list=>{
-      all = Array.isArray(list)? list : [];
-      metaEl.textContent = `${all.length} scripts available`;
-      const q0 = readQuery();
-      if(q0){ qInput.value = q0; }
-      search(q0);
-    }).catch(err=>{
-      metaEl.textContent = 'Failed to load scripts.json';
-      console.error(err);
-    });
+    // init - prevent cache and give clearer parse error if JSON invalid
+    (async function(){
+      try{
+        const r = await fetch('scripts.json', { cache: 'no-store' });
+        if(!r.ok) throw new Error(`HTTP ${r.status}`);
+        const text = await r.text();
+        try{
+          all = JSON.parse(text);
+        }catch(parseErr){
+          console.error('scripts.json parse error:', parseErr, '\nRaw head:', text.slice(0,200));
+          throw parseErr;
+        }
+        if(!Array.isArray(all)) all = [];
+        metaEl.textContent = `${all.length} scripts available`;
+        const q0 = readQuery();
+        if(q0){ qInput.value = q0; }
+        search(q0);
+      }catch(err){
+        metaEl.textContent = 'Failed to load scripts.json';
+        console.error(err);
+      }
+    })();
   })();
   </script>
 </body>
