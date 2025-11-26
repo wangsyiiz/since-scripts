@@ -1,0 +1,42 @@
+name: PR lint
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck curl
+          # install shfmt
+          SHFMT_VERSION=v3.4.6
+          curl -sSL "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64" -o /usr/local/bin/shfmt
+          sudo chmod +x /usr/local/bin/shfmt
+
+      - name: Run shfmt and shellcheck
+        run: |
+          set -e
+          files=$(git ls-files 'scripts/**/*.sh' '*.sh' || true)
+          if [ -z "$files" ]; then
+            echo "No shell scripts to check"
+            exit 0
+          fi
+
+          echo "Checking formatting with shfmt..."
+          echo "$files" | xargs -r shfmt -l | tee /tmp/shfmt.out || true
+          if [ -s /tmp/shfmt.out ]; then
+            echo "The following files are not formatted correctly:" && cat /tmp/shfmt.out
+            exit 1
+          fi
+
+          echo "Running shellcheck..."
+          echo "$files" | xargs -r shellcheck -x
