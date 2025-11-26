@@ -6,8 +6,7 @@
     "author": "your-name",
     "version": "0.1.0",
     "files": "install.sh"
-  }
-,
+  },
   {
     "dir": "scripts/hello-world",
     "name": "Hello World Installer",
@@ -15,8 +14,7 @@
     "author": "wangsyiiz",
     "version": "0.1.0",
     "files": "install.sh"
-  }
-,
+  },
   {
     "dir": "scripts/sample-info",
     "name": "sample-info",
@@ -25,4 +23,4 @@
     "version": "0.1.0",
     "files": "install.sh"
   }
-\n]
+]
