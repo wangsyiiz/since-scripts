@@ -1,36 +1,29 @@
-name: Deploy GitHub Pages
-
+name: Deploy Pages
 on:
   push:
     branches:
       - main
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
+  workflow_dispatch:
 
 jobs:
   deploy:
-    # Only deploy if index.html exists (ensures indexer has run at least once)
-    if: ${{ hashFiles('index.html') != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      - name: Verify build artifacts exist
+        run: |
+          ls -al || true
+          if [ ! -f "index.html" ] || [ ! -f "scripts.json" ]; then
+            echo "index.html or scripts.json not found at repo root. Skipping deploy."
+            echo "::notice title=Skip Deploy::index.html or scripts.json missing"
+            exit 78
+          fi
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to Pages
+        if: ${{ success() }}
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          path: .
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
