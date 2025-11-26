@@ -1,0 +1,35 @@
+name: Update scripts index
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/update-index.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build_and_commit_index:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Make indexer executable
+        run: chmod +x scripts/indexer/generate_index.sh || true
+
+      - name: Run index generator
+        run: scripts/indexer/generate_index.sh
+
+      - name: Commit generated index files
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: github-actions
+          author_email: github-actions@github.com
+          message: chore: update scripts index
+          add: 'scripts.json,index.html'

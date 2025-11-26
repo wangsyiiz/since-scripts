@@ -1,0 +1,58 @@
+name: CI - Shellcheck, shfmt, Tests
+
+on:
+  push:
+    branches: [ '**' ]
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools (shellcheck, shfmt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          # install shfmt binary
+          SHFMT_VERSION=v3.6.1
+          curl -sSL "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64" -o shfmt
+          chmod +x shfmt
+          sudo mv shfmt /usr/local/bin/shfmt
+
+      - name: Run shellcheck on all .sh files
+        run: |
+          set -e
+          files=$(git ls-files '*.sh' | tr '\n' ' ')
+          if [ -z "$files" ]; then
+            echo "No shell scripts found, skipping shellcheck."
+          else
+            echo "Running shellcheck on: $files"
+            shellcheck -x $files
+          fi
+
+      - name: Run shfmt (check formatting)
+        run: |
+          set -e
+          files=$(git ls-files '*.sh' | tr '\n' ' ')
+          if [ -z "$files" ]; then
+            echo "No shell scripts found, skipping shfmt."
+          else
+            echo "Checking shfmt for: $files"
+            if ! shfmt -d $files; then
+              echo "shfmt reported differences. Run 'shfmt -w' to fix them."
+              exit 1
+            fi
+          fi
+
+      - name: Run project tests (if present)
+        run: |
+          if [ -f ./test/run.sh ]; then
+            echo "Running project tests"
+            chmod +x ./test/run.sh
+            ./test/run.sh
+          else
+            echo "No test runner found at ./test/run.sh, skipping tests."
+          fi

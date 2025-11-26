@@ -1,0 +1,26 @@
+name: Create Release on Push to main
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  create_release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Release
+        # Creates a GitHub Release using the run number as a tag (automated)
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ github.run_number }}
+          name: Release ${{ github.run_number }}
+          body: |
+            Automated release created by workflow on push to main.
+            Commit: ${{ github.sha }}
