@@ -48,5 +48,7 @@ jobs:
         with:
           author_name: github-actions
           author_email: github-actions@github.com
-          message: chore: update scripts index
-          add: 'scripts.json,index.html'
+          message: "chore: update scripts index"
+          add: |
+            scripts.json
+            index.html
