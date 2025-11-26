@@ -1,24 +1,171 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Scripts Index</title>
-  <style>body{font-family:Arial,Helvetica,sans-serif;margin:40px}pre{background:#f6f6f6;padding:10px}</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Since Scripts</title>
+  <meta name="description" content="Search, browse and discover handy scripts from this repo" />
+  <style>
+    :root{
+      --accent:#f97316; /* orange */
+      --accent-600:#ea580c;
+      --text:#111827;   /* gray-900 */
+      --muted:#6b7280;  /* gray-500 */
+      --border:#e5e7eb; /* gray-200 */
+      --bg:#ffffff;
+      --card:#ffffff;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color:var(--text); background:var(--bg); display:flex; flex-direction:column;
+    }
+    .hero{
+      position:relative; text-align:center; padding:120px 16px 48px; max-width:860px; margin:0 auto; isolation:isolate;
+    }
+    /* subtle dotted background, faded outside center */
+    .hero::before{
+      content:""; position:absolute; inset:-120px -160px -80px -160px; z-index:-1;
+      background-image:radial-gradient(rgba(249,115,22,.14) 1px, transparent 1px);
+      background-size:18px 18px; opacity:.6;
+      -webkit-mask-image:radial-gradient(circle at center, rgba(0,0,0,.9) 0%, rgba(0,0,0,.6) 35%, rgba(0,0,0,.2) 60%, transparent 75%);
+              mask-image:radial-gradient(circle at center, rgba(0,0,0,.9) 0%, rgba(0,0,0,.6) 35%, rgba(0,0,0,.2) 60%, transparent 75%);
+    }
+    h1{font-size:44px; line-height:1.15; margin:0 0 12px; font-weight:800; letter-spacing:-.02em}
+    .sub{max-width:760px; margin:0 auto; color:var(--muted); font-size:18px; line-height:1.6}
+
+    .search-wrap{margin-top:22px}
+    .search{
+      display:flex; align-items:center; gap:0; max-width:560px; margin:0 auto; background:#fff;
+      border:1px solid var(--border); border-radius:12px; box-shadow:0 6px 14px rgba(16,24,40,.06);
+      overflow:hidden;
+    }
+    .icon{padding:0 10px 0 14px; color:#9ca3af; display:flex; align-items:center}
+    .search input{
+      flex:1; height:44px; border:0; outline:none; font-size:15px; color:var(--text);
+    }
+    .search button{
+      height:44px; padding:0 18px; border:0; color:#fff; background:var(--accent); font-weight:700; cursor:pointer;
+      transition:background .15s ease; border-left:1px solid var(--border);
+    }
+    .search button:hover{background:var(--accent-600)}
+
+    .meta{margin-top:10px; color:var(--muted); font-size:14px}
+    .badge{display:inline-block; background:#fde68a; color:#92400e; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; margin-right:6px}
+
+    .container{width:100%; max-width:980px; margin:0 auto; padding:0 16px 48px}
+    .results{margin-top:28px; display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px}
+    .card{
+      background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px;
+      box-shadow:0 1px 2px rgba(16,24,40,.04);
+    }
+    .card h3{margin:0 0 6px; font-size:18px}
+    .card p{margin:0 0 8px; color:var(--muted); font-size:14px}
+    .card .meta-row{font-size:12px; color:#9ca3af}
+    .card a{color:var(--accent-600); text-decoration:none; font-weight:600}
+    .empty{margin:24px 0; text-align:center; color:var(--muted)}
+
+    @media (max-width:480px){ h1{font-size:32px} .sub{font-size:16px} }
+  </style>
 </head>
 <body>
-  <h1>Scripts Index</h1>
-  <div id="content"></div>
+  <header class="hero">
+    <h1>Search available scripts</h1>
+    <p class="sub">Quickly find scripts in this repository. Search by name or description — no extra setup required.</p>
+
+    <div class="search-wrap">
+      <form id="searchForm" class="search" role="search">
+        <span class="icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </span>
+        <input id="q" name="q" type="search" placeholder="Search for a script name" autocomplete="off" />
+        <button type="submit">Search</button>
+      </form>
+      <div class="meta"><span class="badge">Info</span><span id="metaText">Loading…</span></div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="results" class="results" aria-live="polite"></section>
+    <div id="empty" class="empty" style="display:none">No matching scripts. Try another keyword.</div>
+  </main>
+
   <script>
-    fetch('scripts.json').then(r=>r.json()).then(list=>{
-      const c=document.getElementById('content');
-      if(!list||list.length===0){c.innerHTML='<p>No scripts found.</p>';return}
+  (function(){
+    const resultsEl = document.getElementById('results');
+    const emptyEl = document.getElementById('empty');
+    const metaEl = document.getElementById('metaText');
+    const qInput = document.getElementById('q');
+    const form = document.getElementById('searchForm');
+    let all = [];
+
+    function readQuery(){
+      const u = new URL(window.location);
+      return (u.searchParams.get('q')||'').trim();
+    }
+    function writeQuery(q){
+      const u = new URL(window.location);
+      if(q) u.searchParams.set('q', q); else u.searchParams.delete('q');
+      history.replaceState(null, '', u);
+    }
+
+    function render(list){
+      resultsEl.innerHTML = '';
+      if(!list || list.length===0){
+        emptyEl.style.display='block';
+        return;
+      }
+      emptyEl.style.display='none';
+      const frag = document.createDocumentFragment();
       list.forEach(s=>{
-        const el=document.createElement('div');
-        el.innerHTML = `<h2>${s.name}</h2><p>${s.description||''}</p><p><strong>Dir:</strong> ${s.dir}</p><p><strong>Files:</strong> ${s.files||''}</p><hr>`;
-        c.appendChild(el);
+        const a = document.createElement('article');
+        a.className = 'card';
+        const gh = `https://github.com/wangsyiiz/since-scripts/tree/main/${s.dir||''}`;
+        a.innerHTML = `
+          <h3>${escapeHTML(s.name||'Untitled')}</h3>
+          <p>${escapeHTML(s.description||'')}</p>
+          <div class="meta-row">${s.dir?`Dir: <code>${escapeHTML(s.dir)}</code>`:''}${s.files?` · Files: <code>${escapeHTML(s.files)}</code>`:''}</div>
+          <div style="margin-top:8px"><a href="${gh}" target="_blank" rel="noopener">View on GitHub →</a></div>
+        `;
+        frag.appendChild(a);
       });
-    }).catch(e=>{document.getElementById('content').innerText='Failed to load scripts.json: '+e});
+      resultsEl.appendChild(frag);
+    }
+
+    function search(q){
+      const term = (q||'').toLowerCase();
+      const list = term ? all.filter(s =>
+        (s.name && s.name.toLowerCase().includes(term)) ||
+        (s.description && s.description.toLowerCase().includes(term)) ||
+        (s.dir && s.dir.toLowerCase().includes(term))
+      ) : all;
+      render(list);
+    }
+
+    function escapeHTML(str){
+      return (str+"").replace(/[&<>\"']/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]));
+    }
+
+    form.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const q = qInput.value.trim();
+      writeQuery(q);
+      search(q);
+    });
+
+    // init
+    fetch('scripts.json').then(r=>r.json()).then(list=>{
+      all = Array.isArray(list)? list : [];
+      metaEl.textContent = `${all.length} scripts available`;
+      const q0 = readQuery();
+      if(q0){ qInput.value = q0; }
+      search(q0);
+    }).catch(err=>{
+      metaEl.textContent = 'Failed to load scripts.json';
+      console.error(err);
+    });
+  })();
   </script>
 </body>
 </html>
