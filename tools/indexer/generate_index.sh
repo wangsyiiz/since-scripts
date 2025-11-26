@@ -3,14 +3,13 @@ set -euo pipefail
 
 # Simple index generator for scripts/* directories
 # It looks for a metadata.yml in each script folder with keys: name, description, author, version
-# Produces scripts.json and index.html at the repository root
+# Produces scripts.json at the repository root. It no longer overwrites index.html to avoid UI changes.
 
 # When moved to tools/indexer, compute repository root reliably (two levels up from this script)
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 OUT_JSON="scripts.json"
-OUT_HTML="index.html"
 
 # start JSON array
 echo "[" > "$OUT_JSON"
@@ -59,33 +58,5 @@ done
 # end JSON array
 echo "\n]" >> "$OUT_JSON"
 
-# generate a simple index.html
-cat > "$OUT_HTML" <<'HTML'
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Scripts Index</title>
-  <style>body{font-family:Arial,Helvetica,sans-serif;margin:40px}pre{background:#f6f6f6;padding:10px}</style>
-</head>
-<body>
-  <h1>Scripts Index</h1>
-  <div id="content"></div>
-  <script>
-    fetch('scripts.json').then(r=>r.json()).then(list=>{
-      const c=document.getElementById('content');
-      if(!list||list.length===0){c.innerHTML='<p>No scripts found.</p>';return}
-      list.forEach(s=>{
-        const el=document.createElement('div');
-        el.innerHTML = `<h2>${s.name}</h2><p>${s.description||''}</p><p><strong>Dir:</strong> ${s.dir}</p><p><strong>Files:</strong> ${s.files||''}</p><hr>`;
-        c.appendChild(el);
-      });
-    }).catch(e=>{document.getElementById('content').innerText='Failed to load scripts.json: '+e});
-  </script>
-</body>
-</html>
-HTML
-
 # done
-printf "Generated %s and %s\n" "$OUT_JSON" "$OUT_HTML"
+printf "Generated %s\n" "$OUT_JSON"
