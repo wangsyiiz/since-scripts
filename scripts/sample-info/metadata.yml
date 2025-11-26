@@ -1,0 +1,6 @@
+name: sample-info
+version: 0.1.0
+author: wangsyiiz
+description: "Sample info script for index triggering."
+license: MIT
+entrypoint: install.sh
