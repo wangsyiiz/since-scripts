@@ -168,8 +168,13 @@
     function buildCommandObj(s){
       const baseRaw = s.raw || s.url || (s.dir ? `https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/${encodeURIComponent(s.dir)}/${encodeURIComponent(s.files || 'install.sh')}` : '');
       if(!baseRaw) return null;
+      // Provide identical curl/wget commands for mac and linux; keep separate keys so UI can show platform-specific icons
       return {
-        unix: {
+        mac: {
+          curl: `curl -sSL ${baseRaw} | bash`,
+          wget: `wget -qO- ${baseRaw} | bash`
+        },
+        linux: {
           curl: `curl -sSL ${baseRaw} | bash`,
           wget: `wget -qO- ${baseRaw} | bash`
         },
@@ -183,8 +188,8 @@
     function getPlatforms(s){
       if(Array.isArray(s.platforms)) return s.platforms.map(p=>String(p||'').toLowerCase()).filter(Boolean);
       if(typeof s.platforms === 'string') return s.platforms.split(',').map(p=>p.trim().toLowerCase()).filter(Boolean);
-      // default: support both
-      return ['unix','windows'];
+      // default: support mac and linux (previously 'unix') and windows
+      return ['mac','linux','windows'];
     }
 
     function highlightHTML(text, term){
@@ -218,16 +223,28 @@
         const platWrap = document.createElement('div');
         platWrap.className = 'platforms';
 
-        if(platforms.includes('unix')){
+        if(platforms.includes('mac')){
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.title = 'Unix / Linux / macOS';
-          btn.setAttribute('aria-label','Unix');
+          btn.title = 'macOS';
+          btn.setAttribute('aria-label','macOS');
           btn.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
-              <polyline points="8 9 11 12 8 15"></polyline>
-              <line x1="14" y1="15" x2="18" y2="9"></line>
+              <path d="M3 6h18v12H3z" />
+              <path d="M8 20c1.5 0 2.5-1 4-1s2.5 1 4 1" />
+            </svg>
+          `;
+          platWrap.appendChild(btn);
+        }
+        if(platforms.includes('linux')){
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.title = 'Linux';
+          btn.setAttribute('aria-label','Linux');
+          btn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+              <path d="M8 9h8M8 13h8" />
             </svg>
           `;
           platWrap.appendChild(btn);
@@ -251,11 +268,14 @@
 
         const cmdObj = buildCommandObj(s);
         if(cmdObj){
-          // show unix commands if supported
-          if(platforms.includes('unix') && cmdObj.unix){
+          // show mac/linux commands if either supported (render only once even if both present)
+          if((platforms.includes('mac') || platforms.includes('linux')) && (cmdObj.mac || cmdObj.linux)){
+            // prefer mac commands if available, otherwise linux
+            const shellCmds = cmdObj.mac || cmdObj.linux;
+
             const curlBox = document.createElement('div');
             curlBox.className = 'copy-box';
-            const curlCmd = document.createElement('div'); curlCmd.className='cmd'; curlCmd.textContent = cmdObj.unix.curl;
+            const curlCmd = document.createElement('div'); curlCmd.className='cmd'; curlCmd.textContent = shellCmds.curl;
             const curlBtn = document.createElement('button'); curlBtn.className='copy-btn'; curlBtn.type='button'; curlBtn.textContent='Copy (curl)';
             curlBtn.addEventListener('click', async ()=>{
               try{ await navigator.clipboard.writeText(curlCmd.textContent); curlBtn.textContent='Copied!'; setTimeout(()=>curlBtn.textContent='Copy (curl)',1500); }
@@ -266,7 +286,7 @@
 
             const wgetBox = document.createElement('div');
             wgetBox.className = 'copy-box';
-            const wgetCmd = document.createElement('div'); wgetCmd.className='cmd'; wgetCmd.textContent = cmdObj.unix.wget;
+            const wgetCmd = document.createElement('div'); wgetCmd.className='cmd'; wgetCmd.textContent = shellCmds.wget;
             const wgetBtn = document.createElement('button'); wgetBtn.className='copy-btn'; wgetBtn.type='button'; wgetBtn.textContent='Copy (wget)';
             wgetBtn.addEventListener('click', async ()=>{
               try{ await navigator.clipboard.writeText(wgetCmd.textContent); wgetBtn.textContent='Copied!'; setTimeout(()=>wgetBtn.textContent='Copy (wget)',1500); }
