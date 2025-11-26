@@ -13,8 +13,10 @@
       --muted:#50606a;
       --border:#e6e9ec;
       --bg:#ffffff;
-      --card:#ffffff;
-      --dot:#cfd8dd;
+      --card:#ffffff; /* fully opaque card background */
+      --dot-color: 15,23,42; /* rgb for dots (will be used with alpha variable) */
+      --dot-size: 3px; /* smaller dot radius */
+      --dot-alpha: 0.06; /* lighter dots */
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -33,10 +35,12 @@
       content:""; position:absolute; left:50%; top:0; transform:translateX(-50%);
       width:120%; height:160%;
       z-index:-1;
+      /* smaller, lighter dots */
       background-image:
-        radial-gradient(circle at center, rgba(110,118,125,0.95) 2px, transparent 2px);
-      background-size:16px 16px;
-      opacity:0.6;
+        radial-gradient(circle at center, rgba(var(--dot-color), var(--dot-alpha)) var(--dot-size), transparent calc(var(--dot-size) + 1px));
+      background-size:12px 12px;
+      /* slightly reduce overall intensity so dots are subtle */
+      opacity:0.9;
       pointer-events:none;
       /* mask to fade dots toward edges */
       -webkit-mask-image: radial-gradient(circle at center, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 45%, rgba(0,0,0,0) 85%);
