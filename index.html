@@ -7,15 +7,15 @@
   <meta name="description" content="Search, browse and discover handy scripts from this repo" />
   <style>
     :root{
-      /* Fresh, clean palette */
-      --accent:#06b6d4;     /* teal/cyan */
-      --accent-600:#0891b2; /* darker */
-      --text:#04264a;       /* deep navy */
-      --muted:#5b6b75;      /* muted slate */
-      --border:#e6f0f4;     /* light */
-      --bg:#f0fbff;         /* very light cyan */
+      /* Reverted palette */
+      --accent:#2563eb; /* blue */
+      --accent-600:#1d4ed8;
+      --text:#0f172a;
+      --muted:#50606a;
+      --border:#e6e9ec;
+      --bg:#ffffff;
       --card:#ffffff;
-      --dot:#06b6d4;
+      --dot:#cfd8dd;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -23,28 +23,25 @@
       margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
       color:var(--text); background:var(--bg);
       -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-      display:flex; align-items:center; justify-content:center; min-height:100vh; /* center entire page */
+      /* Restore original flow (not vertically centered) */
     }
 
-    /* Center the hero vertically within viewport */
     .hero{
-      position:relative; text-align:center; padding:48px 20px; width:100%; max-width:920px; margin:0 auto; isolation:isolate;
-      display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:14px;
+      position:relative; text-align:center; padding:48px 20px; width:100%; max-width:920px; margin:28px auto 0; isolation:isolate;
+      display:block;
     }
-    /* stronger, more visible dotted background */
     .hero::before{
-      content:""; position:absolute; inset:-120px -160px -60px -160px; z-index:-1;
-      /* larger, denser, and more visible dots */
-      background-image:radial-gradient(circle at 0 0, rgba(6,182,212,0.95) 2.8px, transparent 2.8px);
-      background-size:14px 14px; opacity:0.85;
-      -webkit-mask-image:radial-gradient(circle at 50% 50%, rgba(0,0,0,1) 0%, rgba(0,0,0,.92) 45%, rgba(0,0,0,.6) 72%, transparent 86%);
-              mask-image:radial-gradient(circle at 50% 50%, rgba(0,0,0,1) 0%, rgba(0,0,0,.92) 45%, rgba(0,0,0,.6) 72%, transparent 86%);
+      content:""; position:absolute; left:50%; top:0; transform:translateX(-50%);
+      width:120%; height:160%;
+      z-index:-1;
+      /* gray dots */
+      background-image:radial-gradient(circle at 0 0, rgba(110,118,125,0.95) 2px, transparent 2px);
+      background-size:16px 16px; opacity:0.45;
       pointer-events:none;
     }
-    /* subtle soft tint */
     .hero::after{
       content:""; position:absolute; inset:0; z-index:-2;
-      background:radial-gradient(ellipse at center, rgba(6,182,212,.06), transparent 55%);
+      background:transparent;
       pointer-events:none;
     }
 
@@ -54,10 +51,10 @@
     .search-wrap{margin-top:26px}
     .search{
       display:flex; align-items:center; gap:0; width:100%; max-width:680px; margin:0 auto; background:#fff;
-      border:1px solid var(--border); border-radius:12px; box-shadow:0 10px 30px rgba(4,6,15,.06);
+      border:1px solid var(--border); border-radius:12px; box-shadow:0 6px 18px rgba(4,6,15,.04);
       overflow:hidden;
     }
-    .icon{padding:0 10px 0 14px; color:#8aa8b2; display:flex; align-items:center}
+    .icon{padding:0 10px 0 14px; color:#a8b3b9; display:flex; align-items:center}
     .search input{
       flex:1; height:52px; border:0; outline:none; font-size:16px; color:var(--text);
       background:#fff; padding:0 12px;
@@ -69,9 +66,9 @@
     .search button:hover{background:var(--accent-600)}
 
     .meta{margin-top:12px; color:var(--muted); font-size:14px}
-    .badge{display:inline-block; background:#e6feff; color:var(--accent-600); padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; margin-right:8px}
+    .badge{display:inline-block; background:#f1f5f9; color:var(--accent-600); padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; margin-right:8px}
 
-    .container{width:100%; max-width:980px; margin:28px auto 0; padding:0 16px 48px}
+    .container{width:100%; max-width:980px; margin:18px auto 48px; padding:0 16px}
     .results{margin-top:18px; display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px}
     .card{
       background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px;
@@ -141,7 +138,7 @@
         const a = document.createElement('article');
         a.className = 'card';
         const gh = `https://github.com/wangsyiiz/since-scripts/tree/main/${s.dir||''}`;
-        a.innerHTML = `\n          <h3>${escapeHTML(s.name||'Untitled')}</h3>\n          <p>${escapeHTML(s.description||'')}</p>\n          <div class=\"meta-row\">${s.dir?`Dir: <code>${escapeHTML(s.dir)}</code>`:''}${s.files?` · Files: <code>${escapeHTML(s.files)}</code>`:''}</div>\n          <div style=\"margin-top:8px\"><a href=\"${gh}\" target=\"_blank\" rel=\"noopener\">View on GitHub →</a></div>\n        `;
+        a.innerHTML = `\n          <h3>${escapeHTML(s.name||'Untitled')}</h3>\n          <p>${escapeHTML(s.description||'')}</p>\n          <div class=\\"meta-row\\">${s.dir?`Dir: <code>${escapeHTML(s.dir)}</code>`:''}${s.files?` · Files: <code>${escapeHTML(s.files)}</code>`:''}</div>\n          <div style=\\"margin-top:8px\\"><a href=\\"${gh}\\" target=\\"_blank\\" rel=\\"noopener\\">View on GitHub →</a></div>\n        `;
         frag.appendChild(a);
       });
       resultsEl.appendChild(frag);
@@ -158,7 +155,7 @@
     }
 
     function escapeHTML(str){
-      return (str+"").replace(/[&<>\"']/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]));
+      return (str+"").replace(/[&<>\\"']/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]));
     }
 
     form.addEventListener('submit', (e)=>{
