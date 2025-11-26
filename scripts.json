@@ -2,11 +2,11 @@
   {
     "dir": "scripts/helloworld",
     "name": "helloworld",
-    "description": "A tiny script that prints Hello World. Unix-only example.",
+    "description": "A tiny script that prints Hello World. mac/linux example.",
     "author": "wangsyiiz",
     "version": "0.1.0",
     "files": "install.sh",
-    "platforms": ["unix"]
+    "platforms": ["mac", "linux"]
   },
   {
     "dir": "scripts/sample-info",
@@ -20,10 +20,10 @@
   {
     "dir": "scripts/example",
     "name": "example",
-    "description": "An example script that supports both Unix and Windows.",
+    "description": "An example script that supports mac, linux and Windows.",
     "author": "you",
     "version": "0.0.1",
     "files": "install.sh",
-    "platforms": ["unix", "windows"]
+    "platforms": ["mac", "linux", "windows"]
   }
 ]
