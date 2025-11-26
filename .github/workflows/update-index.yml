@@ -1,5 +1,8 @@
 name: Update scripts index
 
+# Trigger regeneration also when this workflow changes (to feed Pages later)
+# Added comment line to retrigger and integrate with Pages deployment.
+
 on:
   push:
     branches:
@@ -28,7 +31,6 @@ jobs:
 
       - name: Stage generated files
         run: |
-          # ensure generated files are staged for checking
           git add scripts.json index.html || true
 
       - name: Check for changes
