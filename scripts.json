@@ -1,26 +1,29 @@
 [
   {
-    "dir": "scripts/example-script",
-    "name": "example-script",
-    "description": "An example script demonstrating metadata usage. Updated to trigger index.",
-    "author": "your-name",
-    "version": "0.1.0",
-    "files": "install.sh"
-  },
-  {
-    "dir": "scripts/hello-world",
-    "name": "Hello World Installer",
-    "description": "Example script that prints Hello World (Updated)",
+    "dir": "scripts/helloworld",
+    "name": "helloworld",
+    "description": "A tiny script that prints Hello World. Unix-only example.",
     "author": "wangsyiiz",
     "version": "0.1.0",
-    "files": "install.sh"
+    "files": "install.sh",
+    "platforms": ["unix"]
   },
   {
     "dir": "scripts/sample-info",
     "name": "sample-info",
-    "description": "Sample info script for index triggering.",
+    "description": "Sample info script. Windows-targeted example.",
     "author": "wangsyiiz",
     "version": "0.1.0",
-    "files": "install.sh"
+    "files": "install.ps1",
+    "platforms": ["windows"]
+  },
+  {
+    "dir": "scripts/example",
+    "name": "example",
+    "description": "An example script that supports both Unix and Windows.",
+    "author": "you",
+    "version": "0.0.1",
+    "files": "install.sh",
+    "platforms": ["unix", "windows"]
   }
 ]
