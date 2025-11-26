@@ -88,6 +88,11 @@
     .card h3{margin:0 0 4px; font-size:18px}
     .card p{margin:0; color:var(--muted); font-size:14px}
 
+    /* platform icons (top-right of card) */
+    .platforms{position:absolute; top:12px; right:12px; display:flex; gap:8px; align-items:center}
+    .platforms button{display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:rgba(255,255,255,0.9); border:1px solid rgba(0,0,0,0.04); padding:4px; cursor:default}
+    .platforms svg{width:18px;height:18px;color:var(--muted);}
+
     /* copy command area */
     .copy-box{background:#f8fafb; border:1px solid #e6eef2; border-radius:8px; padding:10px 12px; display:flex; align-items:center; gap:10px}
     .cmd{font-size:13px; color:#0b1720; white-space:pre-wrap; word-break:break-all; flex:1}
@@ -102,7 +107,7 @@
 
     .hl{ color:var(--accent); font-weight:700 }
 
-    @media (max-width:680px){ h1{font-size:36px} .sub{font-size:16px} .copy-btn{padding:8px 10px} }
+    @media (max-width:680px){ h1{font-size:36px} .sub{font-size:16px} .copy-btn{padding:8px 10px} .platforms{top:10px; right:10px} }
   </style>
 </head>
 <body>
@@ -161,9 +166,25 @@
     }
 
     function buildCommandObj(s){
-      const baseRaw = s.raw || s.url || (s.dir ? `https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/${encodeURIComponent(s.dir)}/install.sh` : '');
+      const baseRaw = s.raw || s.url || (s.dir ? `https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/${encodeURIComponent(s.dir)}/${encodeURIComponent(s.files || 'install.sh')}` : '');
       if(!baseRaw) return null;
-      return { curl: `curl -sSL ${baseRaw} | bash`, wget: `wget -qO- ${baseRaw} | bash` };
+      return {
+        unix: {
+          curl: `curl -sSL ${baseRaw} | bash`,
+          wget: `wget -qO- ${baseRaw} | bash`
+        },
+        windows: {
+          powershell: `powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (New-Object Net.WebClient).DownloadString('${baseRaw}')"`,
+          pwsh: `pwsh -c "iwr -useb ${baseRaw} | iex"`
+        }
+      };
+    }
+
+    function getPlatforms(s){
+      if(Array.isArray(s.platforms)) return s.platforms.map(p=>String(p||'').toLowerCase()).filter(Boolean);
+      if(typeof s.platforms === 'string') return s.platforms.split(',').map(p=>p.trim().toLowerCase()).filter(Boolean);
+      // default: support both
+      return ['unix','windows'];
     }
 
     function highlightHTML(text, term){
@@ -192,31 +213,85 @@
 
         a.innerHTML = `\n          <div>\n            <h3>${titleHTML}</h3>\n            <p>${descHTML}</p>\n          </div>\n        `;
 
+        // platform icons (top-right)
+        const platforms = getPlatforms(s);
+        const platWrap = document.createElement('div');
+        platWrap.className = 'platforms';
+
+        if(platforms.includes('unix')){
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.title = 'Unix / Linux / macOS';
+          btn.setAttribute('aria-label','Unix');
+          btn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <polyline points="8 9 11 12 8 15"></polyline>
+              <line x1="14" y1="15" x2="18" y2="9"></line>
+            </svg>
+          `;
+          platWrap.appendChild(btn);
+        }
+        if(platforms.includes('windows')){
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.title = 'Windows';
+          btn.setAttribute('aria-label','Windows');
+          btn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="8" height="8" rx="1"></rect>
+              <rect x="13" y="3" width="8" height="8" rx="1"></rect>
+              <rect x="3" y="13" width="8" height="8" rx="1"></rect>
+              <rect x="13" y="13" width="8" height="8" rx="1"></rect>
+            </svg>
+          `;
+          platWrap.appendChild(btn);
+        }
+        a.appendChild(platWrap);
+
         const cmdObj = buildCommandObj(s);
         if(cmdObj){
-          // curl box
-          const curlBox = document.createElement('div');
-          curlBox.className = 'copy-box';
-          const curlCmd = document.createElement('div'); curlCmd.className='cmd'; curlCmd.textContent = cmdObj.curl;
-          const curlBtn = document.createElement('button'); curlBtn.className='copy-btn'; curlBtn.type='button'; curlBtn.textContent='Copy curl';
-          curlBtn.addEventListener('click', async ()=>{
-            try{ await navigator.clipboard.writeText(curlCmd.textContent); curlBtn.textContent='Copied!'; setTimeout(()=>curlBtn.textContent='Copy curl',1500); }
-            catch(e){ fallbackCopy(curlCmd.textContent, curlBtn, 'Copy curl'); }
-          });
-          curlBox.appendChild(curlCmd); curlBox.appendChild(curlBtn);
-          a.appendChild(curlBox);
+          // show unix commands if supported
+          if(platforms.includes('unix') && cmdObj.unix){
+            const curlBox = document.createElement('div');
+            curlBox.className = 'copy-box';
+            const curlCmd = document.createElement('div'); curlCmd.className='cmd'; curlCmd.textContent = cmdObj.unix.curl;
+            const curlBtn = document.createElement('button'); curlBtn.className='copy-btn'; curlBtn.type='button'; curlBtn.textContent='Copy (curl)';
+            curlBtn.addEventListener('click', async ()=>{
+              try{ await navigator.clipboard.writeText(curlCmd.textContent); curlBtn.textContent='Copied!'; setTimeout(()=>curlBtn.textContent='Copy (curl)',1500); }
+              catch(e){ fallbackCopy(curlCmd.textContent, curlBtn, 'Copy (curl)'); }
+            });
+            curlBox.appendChild(curlCmd); curlBox.appendChild(curlBtn);
+            a.appendChild(curlBox);
 
-          // wget box
-          const wgetBox = document.createElement('div');
-          wgetBox.className = 'copy-box';
-          const wgetCmd = document.createElement('div'); wgetCmd.className='cmd'; wgetCmd.textContent = cmdObj.wget;
-          const wgetBtn = document.createElement('button'); wgetBtn.className='copy-btn'; wgetBtn.type='button'; wgetBtn.textContent='Copy wget';
-          wgetBtn.addEventListener('click', async ()=>{
-            try{ await navigator.clipboard.writeText(wgetCmd.textContent); wgetBtn.textContent='Copied!'; setTimeout(()=>wgetBtn.textContent='Copy wget',1500); }
-            catch(e){ fallbackCopy(wgetCmd.textContent, wgetBtn, 'Copy wget'); }
-          });
-          wgetBox.appendChild(wgetCmd); wgetBox.appendChild(wgetBtn);
-          a.appendChild(wgetBox);
+            const wgetBox = document.createElement('div');
+            wgetBox.className = 'copy-box';
+            const wgetCmd = document.createElement('div'); wgetCmd.className='cmd'; wgetCmd.textContent = cmdObj.unix.wget;
+            const wgetBtn = document.createElement('button'); wgetBtn.className='copy-btn'; wgetBtn.type='button'; wgetBtn.textContent='Copy (wget)';
+            wgetBtn.addEventListener('click', async ()=>{
+              try{ await navigator.clipboard.writeText(wgetCmd.textContent); wgetBtn.textContent='Copied!'; setTimeout(()=>wgetBtn.textContent='Copy (wget)',1500); }
+              catch(e){ fallbackCopy(wgetCmd.textContent, wgetBtn, 'Copy (wget)'); }
+            });
+            wgetBox.appendChild(wgetCmd); wgetBox.appendChild(wgetBtn);
+            a.appendChild(wgetBox);
+          }
+
+          // show windows commands if supported
+          if(platforms.includes('windows') && cmdObj.windows){
+            const psBox = document.createElement('div'); psBox.className='copy-box';
+            const psCmd = document.createElement('div'); psCmd.className='cmd'; psCmd.textContent = cmdObj.windows.powershell;
+            const psBtn = document.createElement('button'); psBtn.className='copy-btn'; psBtn.type='button'; psBtn.textContent='Copy (PowerShell)';
+            psBtn.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(psCmd.textContent); psBtn.textContent='Copied!'; setTimeout(()=>psBtn.textContent='Copy (PowerShell)',1500);}catch(e){ fallbackCopy(psCmd.textContent, psBtn, 'Copy (PowerShell)'); }});
+            psBox.appendChild(psCmd); psBox.appendChild(psBtn);
+            a.appendChild(psBox);
+
+            const pwshBox = document.createElement('div'); pwshBox.className='copy-box';
+            const pwshCmd = document.createElement('div'); pwshCmd.className='cmd'; pwshCmd.textContent = cmdObj.windows.pwsh;
+            const pwshBtn = document.createElement('button'); pwshBtn.className='copy-btn'; pwshBtn.type='button'; pwshBtn.textContent='Copy (pwsh)';
+            pwshBtn.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(pwshCmd.textContent); pwshBtn.textContent='Copied!'; setTimeout(()=>pwshBtn.textContent='Copy (pwsh)',1500);}catch(e){ fallbackCopy(pwshCmd.textContent, pwshBtn, 'Copy (pwsh)'); }});
+            pwshBox.appendChild(pwshCmd); pwshBox.appendChild(pwshBtn);
+            a.appendChild(pwshBox);
+          }
         }
 
         const footer = document.createElement('div');
