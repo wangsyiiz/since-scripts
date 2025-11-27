@@ -1,0 +1,74 @@
+name: Validate scripts on PR
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'scripts.json'
+
+jobs:
+  validate-scripts:
+    name: Validate scripts.json entries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate scripts.json vs files
+        run: |
+          python3 - <<'PY'
+          import json,os,sys
+
+          def path_exists(p):
+              return os.path.exists(p)
+
+          try:
+              with open('scripts.json') as f:
+                  data=json.load(f)
+          except Exception as e:
+              print('Failed to load scripts.json:', e)
+              sys.exit(1)
+
+          errors=[]
+          for entry in data:
+              dir=entry.get('dir') or ''
+              name=entry.get('name') or dir
+              plats=entry.get('platforms') or []
+              files=entry.get('files')
+              if isinstance(files,str):
+                  files_list=[files]
+              elif isinstance(files,list):
+                  files_list=files
+              else:
+                  files_list=[]
+
+              if not os.path.isdir(dir):
+                  errors.append(f"{name}: directory '{dir}' does not exist")
+                  continue
+
+              if any(p in ('mac','linux') for p in plats):
+                  ok=False
+                  for fn in files_list:
+                      if fn.endswith('.sh') and path_exists(os.path.join(dir,fn)):
+                          ok=True
+                          break
+                  if not ok and path_exists(os.path.join(dir,'install.sh')):
+                      ok=True
+                  if not ok:
+                      errors.append(f"{name}: missing .sh file for platforms {plats} in {dir}")
+
+              if 'windows' in plats:
+                  ok=False
+                  for fn in files_list:
+                      if fn.endswith('.ps1') and path_exists(os.path.join(dir,fn)):
+                          ok=True
+                          break
+                  if not ok and path_exists(os.path.join(dir,'install.ps1')):
+                      ok=True
+                  if not ok:
+                      errors.append(f"{name}: missing .ps1 file for platforms {plats} in {dir}")
+
+          if errors:
+              print('\n'.join(errors))
+              sys.exit(1)
+          print('All scripts validated OK')
+          PY
