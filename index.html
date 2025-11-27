@@ -219,41 +219,92 @@
     }
 
     function buildCommandObj(s){
-      // Determine a sensible URL for the script file. Prefer explicit s.raw or s.url, otherwise construct from dir/files.
-      let targetPath = null;
-      if(s.raw && typeof s.raw === 'string'){
-        targetPath = s.raw;
-      }else if(s.url && typeof s.url === 'string'){
-        targetPath = s.url;
-      }else if(s.dir){
-        const fileName = s.files || 'install.sh';
-        // Use the directory basename so published path uses the script folder name at site root.
-        const parts = (s.dir||'').split('/').filter(Boolean);
-        const base = parts.length ? parts[parts.length-1] : s.dir;
-        // Build a path relative to the current page so it works for both user/organization pages and project pages
-        const rel = './' + joinPathEncoded(base, fileName);
-        targetPath = new URL(rel, window.location.href).href; // absolute URL pointing to same host/path base
-      }
-      if(!targetPath) return null;
+      // Generate platform-specific command strings only for the platforms the script advertises support for.
+      const supported = getPlatforms(s);
+      // helper to determine basename of dir
+      const parts = (s.dir||'').split('/').filter(Boolean);
+      const base = parts.length ? parts[parts.length-1] : s.dir || '';
 
-      return {
-        mac: {
-          curl: `curl -sSL ${targetPath} | bash`,
-          wget: `wget -qO- ${targetPath} | bash`
-        },
-        linux: {
-          curl: `curl -sSL ${targetPath} | bash`,
-          wget: `wget -qO- ${targetPath} | bash`
-        },
-        windows: {
-          powershell: `powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (New-Object Net.WebClient).DownloadString('${targetPath}')"`,
-          pwsh: `pwsh -c "iwr -useb ${targetPath} | iex"`
-        },
-        // keep useful fallbacks as properties (not used directly by the UI but helpful for debugging)
-        _fallbacks: {
-          raw: (s.dir ? makeRawGithubUrl(s.dir + '/' + (s.files || 'install.sh')) : null)
+      const obj = {};
+
+      // Prefer explicit per-platform overrides when present
+      const explicitRaw = (typeof s.raw === 'string') ? s.raw : null;
+      const explicitUrl = (typeof s.url === 'string') ? s.url : null;
+      const explicitRawPs = (typeof s.raw_ps === 'string') ? s.raw_ps : null;
+      const explicitPs = (typeof s.ps1 === 'string') ? s.ps1 : null;
+
+      // Determine filenames
+      const shellFile = (typeof s.files === 'string' && s.files) ? s.files : 'install.sh';
+      // Derive a sensible PowerShell filename: prefer explicit ps1 field, otherwise try to replace extension, otherwise default
+      let psFile = 'install.ps1';
+      if(explicitPs) psFile = explicitPs;
+      else if(typeof s.files === 'string' && s.files){
+        const idx = s.files.lastIndexOf('.');
+        if(idx > 0){
+          psFile = s.files.slice(0, idx) + '.ps1';
+        }else{
+          psFile = s.files + '.ps1';
         }
+      }
+
+      // Shell (mac/linux)
+      if(supported.includes('mac') || supported.includes('linux')){
+        let target = null;
+        if(explicitRaw && !supported.includes('windows')){
+          // if explicit raw provided and not windows-only, use it for shell platforms
+          target = explicitRaw;
+        }else if(explicitUrl){
+          target = explicitUrl;
+        }else if(s.dir){
+          const rel = './' + joinPathEncoded(base, shellFile);
+          target = new URL(rel, window.location.href).href;
+        }
+        if(target){
+          obj.mac = obj.mac || {};
+          obj.linux = obj.linux || {};
+          obj.mac.curl = `curl -sSL ${target} | bash`;
+          obj.mac.wget = `wget -qO- ${target} | bash`;
+          obj.linux.curl = obj.mac.curl;
+          obj.linux.wget = obj.mac.wget;
+        }
+      }
+
+      // Windows (PowerShell)
+      if(supported.includes('windows')){
+        let targetPs = null;
+        if(explicitRawPs){
+          targetPs = explicitRawPs;
+        }else if(explicitUrl && /\.ps1($|\?|#)/i.test(explicitUrl)){
+          // if explicit url points to ps1, prefer it for windows
+          targetPs = explicitUrl;
+        }else if(s.dir){
+          const relPs = './' + joinPathEncoded(base, psFile);
+          targetPs = new URL(relPs, window.location.href).href;
+        }else if(explicitRaw){
+          // as a last resort, try to reuse explicit raw and hope it's the correct file
+          targetPs = explicitRaw;
+        }
+
+        if(targetPs){
+          obj.windows = obj.windows || {};
+          // Use PowerShell (Windows PowerShell) and pwsh (PowerShell Core) variants
+          // Escape single quotes in URL for use inside single-quoted PowerShell string if needed
+          const quoted = targetPs.replace(/'/g, "'\"'\"");
+          obj.windows.powershell = `powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (New-Object Net.WebClient).DownloadString('${targetPs}')"`;
+          obj.windows.pwsh = `pwsh -c \"iwr -useb ${targetPs} | iex\"`;
+        }
+      }
+
+      // Provide helpful fallback raw GitHub URL for debugging when a dir is present
+      obj._fallbacks = {
+        raw: (s.dir ? makeRawGithubUrl((s.dir + '/' + (s.files || 'install.sh')).replace(/\\+/g, '/')) : null),
+        ps_raw: (s.dir ? makeRawGithubUrl((s.dir + '/' + psFile).replace(/\\+/g, '/')) : null)
       };
+
+      // If object is empty (no platforms matched or no targets resolved), return null
+      if(Object.keys(obj).length === 1 && obj._fallbacks) return obj; // still return fallbacks
+      if(Object.keys(obj).length === 0) return null;
+      return obj;
     }
 
     function buildReadmeUrl(s){
