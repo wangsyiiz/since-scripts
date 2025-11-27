@@ -1,74 +1,121 @@
-name: Validate scripts on PR
+name: Validate scripts metadata on PR
 
 on:
   pull_request:
     paths:
       - 'scripts/**'
-      - 'scripts.json'
 
 jobs:
-  validate-scripts:
-    name: Validate scripts.json entries
+  validate-meta:
+    name: Validate meta.yml in changed script dirs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Validate scripts.json vs files
+      - name: Set up Python
         run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pyyaml
+
+      - name: Validate meta.yml vs script files
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          echo "Base ref: $BASE_REF"
+          # ensure base ref is available
+          git fetch origin "$BASE_REF":refs/remotes/origin/"$BASE_REF" || true
+
+          # get list of changed files in the PR under scripts/
+          CHANGED=$(git diff --name-only origin/"$BASE_REF"...HEAD || true)
+          echo "Changed files:\n$CHANGED"
+
           python3 - <<'PY'
-          import json,os,sys
+          import os,sys,subprocess,yaml
 
-          def path_exists(p):
-              return os.path.exists(p)
-
+          base_ref = os.environ.get('BASE_REF')
           try:
-              with open('scripts.json') as f:
-                  data=json.load(f)
-          except Exception as e:
-              print('Failed to load scripts.json:', e)
-              sys.exit(1)
+              diff = subprocess.check_output(['git','diff','--name-only',f'origin/{base_ref}...HEAD'], text=True)
+          except subprocess.CalledProcessError as e:
+              diff = ''
+          changed = [l.strip() for l in diff.splitlines() if l.strip()]
 
-          errors=[]
-          for entry in data:
-              dir=entry.get('dir') or ''
-              name=entry.get('name') or dir
-              plats=entry.get('platforms') or []
-              files=entry.get('files')
-              if isinstance(files,str):
-                  files_list=[files]
-              elif isinstance(files,list):
-                  files_list=files
-              else:
-                  files_list=[]
+          script_dirs = set()
+          for p in changed:
+              if p.startswith('scripts/'):
+                  parts = p.split('/')
+                  if len(parts) >= 2:
+                      # scripts/<dir>/...
+                      script_dirs.add(os.path.join(parts[0],parts[1]))
 
-              if not os.path.isdir(dir):
-                  errors.append(f"{name}: directory '{dir}' does not exist")
+          if not script_dirs:
+              print('No changed script directories found. Nothing to validate.')
+              sys.exit(0)
+
+          errors = []
+          for d in sorted(script_dirs):
+              meta_path = os.path.join(d,'meta.yml')
+              if not os.path.exists(meta_path):
+                  errors.append(f"{d}: missing meta.yml")
+                  continue
+              try:
+                  with open(meta_path,'r') as f:
+                      meta = yaml.safe_load(f) or {}
+              except Exception as e:
+                  errors.append(f"{d}: failed to parse meta.yml: {e}")
                   continue
 
+              name = meta.get('name') or d
+              plats = meta.get('platforms') or []
+              if isinstance(plats, str):
+                  plats = [plats]
+              plats = [p.lower() for p in plats]
+
+              files_field = meta.get('files') or []
+              if isinstance(files_field, str):
+                  files_field = [files_field]
+
+              # check that files listed in meta.yml exist
+              for fn in files_field:
+                  fn_path = os.path.join(d,fn)
+                  if not os.path.exists(fn_path):
+                      errors.append(f"{name}: listed file '{fn}' in meta.yml not found in {d}")
+
+              # for platforms, ensure appropriate script types exist
               if any(p in ('mac','linux') for p in plats):
-                  ok=False
-                  for fn in files_list:
-                      if fn.endswith('.sh') and path_exists(os.path.join(dir,fn)):
-                          ok=True
+                  ok = False
+                  # check files_field for .sh
+                  for fn in files_field:
+                      if fn.lower().endswith('.sh') and os.path.exists(os.path.join(d,fn)):
+                          ok = True
                           break
-                  if not ok and path_exists(os.path.join(dir,'install.sh')):
-                      ok=True
+                  # fallback: any .sh in directory
                   if not ok:
-                      errors.append(f"{name}: missing .sh file for platforms {plats} in {dir}")
+                      for f in os.listdir(d):
+                          if f.lower().endswith('.sh') and os.path.isfile(os.path.join(d,f)):
+                              ok = True
+                              break
+                  if not ok:
+                      errors.append(f"{name}: platforms {plats} include mac/linux but no .sh file found in {d}")
 
               if 'windows' in plats:
-                  ok=False
-                  for fn in files_list:
-                      if fn.endswith('.ps1') and path_exists(os.path.join(dir,fn)):
-                          ok=True
+                  ok = False
+                  for fn in files_field:
+                      if fn.lower().endswith('.ps1') and os.path.exists(os.path.join(d,fn)):
+                          ok = True
                           break
-                  if not ok and path_exists(os.path.join(dir,'install.ps1')):
-                      ok=True
                   if not ok:
-                      errors.append(f"{name}: missing .ps1 file for platforms {plats} in {dir}")
+                      for f in os.listdir(d):
+                          if f.lower().endswith('.ps1') and os.path.isfile(os.path.join(d,f)):
+                              ok = True
+                              break
+                  if not ok:
+                      errors.append(f"{name}: platforms {plats} include windows but no .ps1 file found in {d}")
 
           if errors:
               print('\n'.join(errors))
               sys.exit(1)
-          print('All scripts validated OK')
+          print('All meta.yml validations passed')
           PY
