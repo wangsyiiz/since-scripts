@@ -85,8 +85,13 @@
       background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px;
       box-shadow:0 1px 2px rgba(4,6,15,.04); display:flex; flex-direction:column; gap:10px; position:relative; z-index:2;
     }
-    .card h3{Margin:0 0 4px; font-size:18px}
+    .card h3{margin:0; font-size:18px}
     .card p{margin:0; color:var(--muted); font-size:14px}
+
+    .card-header{display:flex; align-items:center; gap:8px; margin-bottom:4px}
+    .readme-link{display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:6px; background:rgba(37,99,235,0.08); border:1px solid rgba(37,99,235,0.18); transition:background .15s ease, transform .15s ease; cursor:pointer}
+    .readme-link:hover{background:rgba(37,99,235,0.18); transform:translateY(-1px)}
+    .readme-link img{width:16px; height:16px}
 
     /* platform icons (top-right of card) */
     .platforms{position:absolute; top:12px; right:12px; display:flex; gap:8px; align-items:center}
@@ -99,7 +104,36 @@
     .copy-btn{background:var(--btn-gradient); color:#fff; border:0; padding:8px 10px; border-radius:8px; cursor:pointer; font-weight:700}
     .copy-btn:active{transform:translateY(1px)}
 
-    .card-footer{display:flex; gap:12px; font-size:13px; color:var(--muted); align-items:center; justify-content:space-between; flex-wrap:wrap}
+    /* GitHub Icon */
+    .github-icon {
+      position: absolute;
+      top: 0px;
+      right: 24px;
+      color: var(--muted);
+      transition: all 0.2s ease;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      width: 40px;
+      height: 40px;
+    }
+    .github-icon:hover {
+      color: var(--text);
+      transform: scale(1.1);
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .github-icon svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
+    }
+   .card-footer{display:flex; gap:12px; font-size:13px; color:var(--muted); align-items:center; justify-content:space-between; flex-wrap:wrap}
     .meta-left{display:flex; gap:10px; align-items:center}
     .meta-right{color:#8aa8b2; font-size:13px}
 
@@ -111,6 +145,9 @@
   </style>
 </head>
 <body>
+  <a href="https://github.com/wangsyiiz/since-scripts" target="_blank" class="github-icon" aria-label="View source on GitHub">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+  </a>
   <header class="hero">
     <h1>Since scripts</h1>
     <p class="sub">Quickly find scripts in this repository. Search by name or description — no extra setup required.</p>
@@ -185,6 +222,13 @@
       };
     }
 
+    function buildReadmeUrl(s){
+      if(s.readme){
+        return s.has_readme ? encodeURI() : null;
+      }
+      return null;
+    }
+
     function getPlatforms(s){
       if(Array.isArray(s.platforms)) return s.platforms.map(p=>String(p||'').toLowerCase()).filter(Boolean);
       if(typeof s.platforms === 'string') return s.platforms.split(',').map(p=>p.trim().toLowerCase()).filter(Boolean);
@@ -216,7 +260,26 @@
         const titleHTML = highlightHTML(s.name||'Untitled', q);
         const descHTML = highlightHTML(s.description||'', q);
 
-        a.innerHTML = `\n          <div>\n            <h3>${titleHTML}</h3>\n            <p>${descHTML}</p>\n          </div>\n        `;
+          const header = document.createElement('div');
+          header.className = 'card-header';
+          const titleEl = document.createElement('h3');
+          titleEl.innerHTML = titleHTML;
+          header.appendChild(titleEl);
+          const readmeUrl = buildReadmeUrl(s);
+          if(readmeUrl){
+            const docLink = document.createElement('a');
+            docLink.className = 'readme-link';
+            docLink.href = readmeUrl;
+            docLink.title = 'Open README';
+            docLink.setAttribute('aria-label', `Open README for ${s.name || 'this script'}`);
+            docLink.innerHTML = `<img src="assets/icons/link.svg" alt="" aria-hidden="true" width="16" height="16" />`;
+            header.appendChild(docLink);
+          }
+          a.appendChild(header);
+
+          const descEl = document.createElement('p');
+          descEl.innerHTML = descHTML;
+          a.appendChild(descEl);
 
         // platform icons (top-right of card)
         const platforms = getPlatforms(s);

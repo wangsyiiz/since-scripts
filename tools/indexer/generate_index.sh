@@ -22,6 +22,7 @@ for d in scripts/*/; do
   author=""
   version=""
   entry=""
+  readme=false
   if [ -f "$meta" ]; then
     # crude YAML parsing: look for 'key: value' at line start
     description=$(grep -E '^description:' "$meta" | sed 's/^description:[[:space:]]*//' | sed 's/^"\|"$//g') || true
@@ -29,6 +30,7 @@ for d in scripts/*/; do
     version=$(grep -E '^version:' "$meta" | sed 's/^version:[[:space:]]*//' | sed 's/^"\|"$//g') || true
     name_val=$(grep -E '^name:' "$meta" | sed 's/^name:[[:space:]]*//' | sed 's/^"\|"$//g' || true)
     if [ -n "$name_val" ]; then name="$name_val"; fi
+    if [ -f "$d/README.md" ]; then readme=true;
   fi
   # find executable files in folder
   exec_files="$(find "$d" -maxdepth 1 -type f -perm /111 -printf '%f,' | sed 's/,$//')"
@@ -50,7 +52,8 @@ for d in scripts/*/; do
     "description": "${description}",
     "author": "${author}",
     "version": "${version}",
-    "files": "${exec_files}"
+    "files": "${exec_files}",
+    "has_readme": ${readme}
   }
 EOF
 
