@@ -179,6 +179,8 @@
     const form = document.getElementById('searchForm');
     let all = [];
     const ORIGIN = window.location.origin; // read current domain/origin
+    const RAW_BASE = 'https://raw.githubusercontent.com/wangsyiiz/since-scripts/main';
+    const GITHUB_BLOB_BASE = 'https://github.com/wangsyiiz/since-scripts/blob/main';
 
     function readQuery(){
       const u = new URL(window.location);
@@ -203,29 +205,67 @@
       }catch(e){return d||''}
     }
 
+    // Encode each path segment separately to preserve slashes
+    function joinPathEncoded(...parts){
+      return parts.map(p => String(p||'').split('/').map(encodeURIComponent).join('/')).join('/').replace(/\\+/g, '/');
+    }
+    function makeRawGithubUrl(filePath){
+      const encoded = joinPathEncoded(filePath);
+      return `${RAW_BASE}/${encoded}`;
+    }
+    function makeGithubBlobUrl(filePath){
+      const encoded = joinPathEncoded(filePath);
+      return `${GITHUB_BLOB_BASE}/${encoded}`;
+    }
+
     function buildCommandObj(s){
-      const baseRaw = s.raw || s.url || (s.dir ? `${ORIGIN}/${encodeURIComponent(s.dir)}/${encodeURIComponent(s.files || 'install.sh')}` : '');
-      if(!baseRaw) return null;
-      // Provide identical curl/wget commands for mac and linux; keep separate keys so UI can show platform-specific icons
+      // Determine a sensible URL for the script file. Prefer explicit s.raw or s.url, otherwise construct from dir/files.
+      let targetPath = null;
+      if(s.raw && typeof s.raw === 'string'){
+        targetPath = s.raw;
+      }else if(s.url && typeof s.url === 'string'){
+        targetPath = s.url;
+      }else if(s.dir){
+        const fileName = s.files || 'install.sh';
+        // Build a path relative to the current page so it works for both user/organization pages and project pages
+        const rel = (s.dir + '/' + fileName).replace(/\\+/g, '/');
+        targetPath = new URL(rel, window.location.href).href; // absolute URL pointing to same host/path base
+      }
+      if(!targetPath) return null;
+
       return {
         mac: {
-          curl: `curl -sSL ${baseRaw} | bash`,
-          wget: `wget -qO- ${baseRaw} | bash`
+          curl: `curl -sSL ${targetPath} | bash`,
+          wget: `wget -qO- ${targetPath} | bash`
         },
         linux: {
-          curl: `curl -sSL ${baseRaw} | bash`,
-          wget: `wget -qO- ${baseRaw} | bash`
+          curl: `curl -sSL ${targetPath} | bash`,
+          wget: `wget -qO- ${targetPath} | bash`
         },
         windows: {
-          powershell: `powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (New-Object Net.WebClient).DownloadString('${baseRaw}')"`,
-          pwsh: `pwsh -c "iwr -useb ${baseRaw} | iex"`
+          powershell: `powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (New-Object Net.WebClient).DownloadString('${targetPath}')"`,
+          pwsh: `pwsh -c "iwr -useb ${targetPath} | iex"`
+        },
+        // keep useful fallbacks as properties (not used directly by the UI but helpful for debugging)
+        _fallbacks: {
+          raw: (s.dir ? makeRawGithubUrl(s.dir + '/' + (s.files || 'install.sh')) : null)
         }
       };
     }
 
     function buildReadmeUrl(s){
-      if(s.readme){
-        return s.has_readme ? encodeURI() : null;
+      // Prefer an explicit readme URL if provided
+      if(s.readme && typeof s.readme === 'string'){
+        const r = s.readme;
+        if(/^https?:\/\//i.test(r)) return r;
+        // try to resolve relative to current page, but prefer a GitHub blob URL for repository-hosted README
+        return makeGithubBlobUrl(r);
+      }
+      // If dir is present, assume README.md under that dir on GitHub
+      if(s.dir){
+        const candidate = (s.dir + '/README.md').replace(/\\+/g, '/');
+        // Prefer GitHub blob (web view) so the README is nicely rendered
+        return makeGithubBlobUrl(candidate);
       }
       return null;
     }
@@ -239,7 +279,7 @@
 
     function highlightHTML(text, term){
       if(!term) return escapeHTML(text);
-      const tokens = (term||'').split(/\s+/).filter(Boolean).map(t=>escapeRegExp(t));
+      const tokens = (term||'').split(/\\s+/).filter(Boolean).map(t=>escapeRegExp(t));
       if(tokens.length===0) return escapeHTML(text);
       const re = new RegExp('(' + tokens.join('|') + ')', 'ig');
       return escapeHTML(text).replace(re, '<span class="hl">$1</span>');
@@ -418,10 +458,13 @@
 
     qInput.addEventListener('input', debouncedInput);
 
-    // Robust scripts.json loading: try local, then raw GitHub, and show helpful meta text
+    // Robust scripts.json loading: try relative, then domain root, then raw GitHub
     (async function(){
-      const local = 'scripts.json';
-      const raw = `${ORIGIN}/scripts.json`; // use current origin for fallback raw location
+      const candidates = [
+        'scripts.json', // relative to this page (works for project pages)
+        `${ORIGIN}/scripts.json`, // domain root (useful for user/organization pages served from root)
+        `${RAW_BASE}/scripts.json` // fallback to raw in the repository
+      ];
 
       async function fetchJson(url){
         const r = await fetch(url, { cache: 'no-store' });
@@ -437,23 +480,25 @@
         }
       }
 
-      try{
+      let lastErr = null;
+      for(const c of candidates){
         try{
-          const ts = Math.floor(Date.now()/60000); // minute resolution
-          all = await fetchJson(`${local}?v=${ts}`);
-        }catch(localErr){
-          console.warn('Local scripts.json failed, falling back to raw GitHub', localErr);
-          all = await fetchJson(raw);
-        }
-        metaEl.textContent = `${all.length} scripts available`;
-        const q0 = readQuery();
-        if(q0) qInput.value = q0;
-        search(q0);
-      }catch(err){
-        all = [];
-        metaEl.textContent = 'No scripts available';
-        console.error('Could not load scripts.json from either source:', err);
+          const ts = Math.floor(Date.now()/60000); // minute resolution to bust cache for local sources
+          const url = c === candidates[2] ? c : `${c}?v=${ts}`; // don't add cache buster for raw GitHub
+          all = await fetchJson(url);
+          metaEl.textContent = `${all.length} scripts available`;
+          console.info('Loaded scripts.json from', url);
+          const q0 = readQuery();
+          if(q0) qInput.value = q0;
+          search(q0);
+          return;
+        }catch(e){ lastErr = e; console.warn('Failed to load scripts.json from', c, e); }
       }
+
+      // If we get here, all candidates failed
+      all = [];
+      metaEl.textContent = 'No scripts available';
+      console.error('Could not load scripts.json from any candidate:', lastErr);
     })();
   })();
   </script>
