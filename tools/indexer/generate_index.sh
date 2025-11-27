@@ -30,7 +30,7 @@ for d in scripts/*/; do
     version=$(grep -E '^version:' "$meta" | sed 's/^version:[[:space:]]*//' | sed 's/^"\|"$//g') || true
     name_val=$(grep -E '^name:' "$meta" | sed 's/^name:[[:space:]]*//' | sed 's/^"\|"$//g' || true)
     if [ -n "$name_val" ]; then name="$name_val"; fi
-    if [ -f "$d/README.md" ]; then readme=true;
+    if [ -f "$d/README.md" ]; then readme=true; fi
   fi
   # find executable files in folder
   exec_files="$(find "$d" -maxdepth 1 -type f -perm /111 -printf '%f,' | sed 's/,$//')"
