@@ -227,8 +227,11 @@
         targetPath = s.url;
       }else if(s.dir){
         const fileName = s.files || 'install.sh';
+        // Use the directory basename so published path uses the script folder name at site root.
+        const parts = (s.dir||'').split('/').filter(Boolean);
+        const base = parts.length ? parts[parts.length-1] : s.dir;
         // Build a path relative to the current page so it works for both user/organization pages and project pages
-        const rel = (s.dir + '/' + fileName).replace(/\\+/g, '/');
+        const rel = './' + joinPathEncoded(base, fileName);
         targetPath = new URL(rel, window.location.href).href; // absolute URL pointing to same host/path base
       }
       if(!targetPath) return null;
