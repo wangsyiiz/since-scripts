@@ -17,28 +17,35 @@ jobs:
       - name: Set up Python
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pyyaml
+          python3 -m pip install pyyaml requests
 
-      - name: Validate meta.yml vs script files
+      - name: Validate meta.yml vs script files and post PR review
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           echo "Base ref: $BASE_REF"
-          # ensure base ref is available
           git fetch origin "$BASE_REF":refs/remotes/origin/"$BASE_REF" || true
 
-          # get list of changed files in the PR under scripts/
-          CHANGED=$(git diff --name-only origin/"$BASE_REF"...HEAD || true)
-          echo "Changed files:\n$CHANGED"
+          echo "Gathering changed files"
+          DIFF=$(git diff --name-only origin/"$BASE_REF"...HEAD || true)
+          echo "$DIFF"
 
           python3 - <<'PY'
-          import os,sys,subprocess,yaml
+          import os,sys,subprocess,yaml,json
+          import requests
 
           base_ref = os.environ.get('BASE_REF')
+          pr_number = os.environ.get('PR_NUMBER')
+          token = os.environ.get('GITHUB_TOKEN')
+          repo = os.environ.get('GITHUB_REPOSITORY')
+
           try:
               diff = subprocess.check_output(['git','diff','--name-only',f'origin/{base_ref}...HEAD'], text=True)
-          except subprocess.CalledProcessError as e:
+          except subprocess.CalledProcessError:
               diff = ''
           changed = [l.strip() for l in diff.splitlines() if l.strip()]
 
@@ -47,7 +54,6 @@ jobs:
               if p.startswith('scripts/'):
                   parts = p.split('/')
                   if len(parts) >= 2:
-                      # scripts/<dir>/...
                       script_dirs.add(os.path.join(parts[0],parts[1]))
 
           if not script_dirs:
@@ -55,6 +61,9 @@ jobs:
               sys.exit(0)
 
           errors = []
+          # required meta fields
+          required_fields = ['name','description','platforms','files']
+
           for d in sorted(script_dirs):
               meta_path = os.path.join(d,'meta.yml')
               if not os.path.exists(meta_path):
@@ -66,6 +75,11 @@ jobs:
               except Exception as e:
                   errors.append(f"{d}: failed to parse meta.yml: {e}")
                   continue
+
+              # check required fields presence
+              missing = [f for f in required_fields if f not in meta]
+              if missing:
+                  errors.append(f"{d}: meta.yml missing required fields: {missing}")
 
               name = meta.get('name') or d
               plats = meta.get('platforms') or []
@@ -115,7 +129,28 @@ jobs:
                       errors.append(f"{name}: platforms {plats} include windows but no .ps1 file found in {d}")
 
           if errors:
-              print('\n'.join(errors))
+              body = 'Automated validation found issues with scripts in this PR:\n\n'
+              for e in errors:
+                  body += '- ' + e.replace('\n','\\n') + '\n'
+
+              # post PR review requesting changes
+              owner_repo = repo
+              url = f'https://api.github.com/repos/{owner_repo}/pulls/{pr_number}/reviews'
+              headers = {'Authorization': f'token {token}', 'Accept': 'application/vnd.github.v3+json'}
+              payload = {'body': body, 'event': 'REQUEST_CHANGES'}
+              r = requests.post(url, headers=headers, json=payload)
+              print('Create review response:', r.status_code)
+              try:
+                  print(r.json())
+              except Exception:
+                  print(r.text)
+              if r.status_code >= 400:
+                  print('Failed to post PR review comment')
+                  sys.exit(1)
+
+              print('Posted PR review requesting changes')
               sys.exit(1)
-          print('All meta.yml validations passed')
+          else:
+              print('All meta.yml validations passed')
+              sys.exit(0)
           PY
