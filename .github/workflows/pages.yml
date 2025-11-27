@@ -34,25 +34,46 @@ jobs:
             exit 78
           fi
 
-      - name: Show current commit
+      - name: Prepare publish dir
         run: |
-          echo "HEAD SHA: $(git rev-parse HEAD)"
-          echo "Remote URLs:"; git remote -v
+          set -euo pipefail
+          rm -rf public
+          mkdir -p public
+          # copy root files expected by Pages
+          cp -a index.html scripts.json public/ || true
+          [ -f CNAME ] && cp CNAME public/CNAME || true
+          # copy assets if present
+          if [ -d assets ]; then cp -a assets public/; fi
+          # copy each scripts/<folder> to public/<folder>
+          if [ -d scripts ]; then
+            for d in scripts/*; do
+              [ -d "$d" ] || continue
+              name=$(basename "$d")
+              mkdir -p "public/$name"
+              cp -a "$d/." "public/$name/" || true
+            done
+          fi
+          echo "Prepared public/ contents:"
+          ls -la public | sed -n '1,200p'
 
       - name: Deploy to Pages (gh-pages branch)
         if: ${{ success() }}
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
+          publish_dir: ./public
           publish_branch: gh-pages
           force_orphan: true
           user_name: github-actions[bot]
           user_email: 41898282+github-actions[bot]@users.noreply.github.com
-          commit_message: "deploy: update GitHub Pages"
+          commit_message: "deploy: update GitHub Pages (prepare public from scripts)"
 
       - name: Print deploy directory summary
         if: ${{ success() }}
         run: |
-          echo "Files that were published:";
-          find . -maxdepth 1 -type f -printf '%f\n' | sort
+          echo "Files that were published:"
+          if [ -d public ]; then
+            find public -maxdepth 2 -type f | sed 's#^public/##' | sort
+          else
+            echo "public/ not found"
+          fi
