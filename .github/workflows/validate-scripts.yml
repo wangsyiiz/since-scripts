@@ -1,4 +1,4 @@
-name: Validate scripts on PR (comment)
+name: Validate scripts on PR (comment + checks)
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   validate-meta:
-    name: Validate meta.yml in changed script dirs and comment on PR
+    name: Validate meta.yml in changed script dirs, post PR comment, and run sh/ps1 checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -159,3 +159,71 @@ jobs:
               print('All meta.yml validations passed')
               sys.exit(0)
           PY
+
+      - name: Run shell & PowerShell static and format checks on changed scripts
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          echo "Base ref: $BASE_REF"
+          git fetch origin "$BASE_REF":refs/remotes/origin/"$BASE_REF" || true
+
+          DIFF=$(git diff --name-only origin/"$BASE_REF"...HEAD || true)
+          echo "Changed files:\n$DIFF"
+
+          # collect changed .sh and .ps1 files
+          mapfile -t SH_FILES < <(printf "%s\n" "$DIFF" | grep -E '\\.sh$' || true)
+          mapfile -t PS1_FILES < <(printf "%s\n" "$DIFF" | grep -E '\\.ps1$' || true)
+
+          if [ ${#SH_FILES[@]} -eq 0 ] && [ ${#PS1_FILES[@]} -eq 0 ]; then
+            echo "No .sh or .ps1 files changed in this PR. Skipping shell/ps1 checks."
+            exit 0
+          fi
+
+          if [ ${#SH_FILES[@]} -gt 0 ]; then
+            echo "Shell files to check: ${SH_FILES[*]}"
+            sudo apt-get update
+            sudo apt-get install -y shellcheck curl
+
+            SHFMT_VER="v3.6.1"
+            curl -sL -o /usr/local/bin/shfmt "https://github.com/mvdan/sh/releases/download/${SHFMT_VER}/shfmt_${SHFMT_VER#v}_linux_amd64"
+            sudo chmod +x /usr/local/bin/shfmt || true
+
+            # run shfmt (list unformatted files)
+            UNFORMATTED=""
+            for f in "${SH_FILES[@]}"; do
+              if [ -f "$f" ]; then
+                out=$(shfmt -l "$f" || true)
+                if [ -n "$out" ]; then
+                  UNFORMATTED="$UNFORMATTED\n$out"
+                fi
+              fi
+            done
+
+            if [ -n "$(echo -n "$UNFORMATTED" )" ]; then
+              echo "shfmt found unformatted files:$UNFORMATTED"
+              echo "Run: shfmt -w <file> to fix formatting"
+              exit 1
+            fi
+
+            # run shellcheck
+            echo "Running shellcheck..."
+            shellcheck -x ${SH_FILES[*]}
+          fi
+
+          if [ ${#PS1_FILES[@]} -gt 0 ]; then
+            echo "PowerShell files to check: ${PS1_FILES[*]}"
+            # Install PSScriptAnalyzer and run Invoke-ScriptAnalyzer on each file. Fail if any findings with Severity Error/Warning.
+            pwsh -NoProfile -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -AllowClobber -SkipPublisherCheck"
+            PS_FAIL=0
+            for f in "${PS1_FILES[@]}"; do
+              if [ -f "$f" ]; then
+                echo "Analyzing $f"
+                pwsh -NoProfile -Command "if ((Invoke-ScriptAnalyzer -Path '$f' -Severity @('Error','Warning')).Count -gt 0) { Write-Output 'ISSUES'; exit 1 } else { exit 0 }" || PS_FAIL=1
+              fi
+            done
+            if [ "$PS_FAIL" -ne 0 ]; then
+              echo "PSScriptAnalyzer found issues in one or more .ps1 files"
+              exit 1
+            fi
+          fi
