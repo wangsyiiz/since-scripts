@@ -1,29 +1,27 @@
 [
   {
-    "dir": "scripts/helloworld",
-    "name": "helloworld",
-    "description": "A tiny script that prints Hello World. mac/linux example.",
-    "author": "wangsyiiz",
-    "version": "0.1.0",
-    "files": "install.sh",
-    "platforms": ["mac", "linux"]
+    "name": "example-script",
+    "path": "scripts/example-script",
+    "readme": "https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/scripts/example-script/README.md"
   },
   {
-    "dir": "scripts/sample-info",
-    "name": "sample-info",
-    "description": "Sample info script. Windows-targeted example.",
-    "author": "wangsyiiz",
-    "version": "0.1.0",
-    "files": "install.ps1",
-    "platforms": ["windows"]
-  },
-  {
-    "dir": "scripts/example",
     "name": "example",
-    "description": "An example script that supports mac, linux and Windows.",
-    "author": "you",
-    "version": "0.0.1",
-    "files": "install.sh",
-    "platforms": ["mac", "linux", "windows"]
+    "path": "scripts/example",
+    "readme": "https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/scripts/example/README.md"
+  },
+  {
+    "name": "hello-world",
+    "path": "scripts/hello-world",
+    "readme": "https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/scripts/hello-world/README.md"
+  },
+  {
+    "name": "helloworld",
+    "path": "scripts/helloworld",
+    "readme": "https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/scripts/helloworld/README.md"
+  },
+  {
+    "name": "sample-info",
+    "path": "scripts/sample-info",
+    "readme": "https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/scripts/sample-info/README.md"
   }
 ]
