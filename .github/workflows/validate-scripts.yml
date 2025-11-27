@@ -1,4 +1,4 @@
-name: Validate scripts metadata on PR
+name: Validate scripts on PR (comment)
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   validate-meta:
-    name: Validate meta.yml in changed script dirs
+    name: Validate meta.yml in changed script dirs and comment on PR
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install pyyaml requests
 
-      - name: Validate meta.yml vs script files and post PR review
+      - name: Validate meta.yml vs script files and post PR comment
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -35,8 +35,7 @@ jobs:
           echo "$DIFF"
 
           python3 - <<'PY'
-          import os,sys,subprocess,yaml,json
-          import requests
+          import os,sys,subprocess,yaml,json,requests
 
           base_ref = os.environ.get('BASE_REF')
           pr_number = os.environ.get('PR_NUMBER')
@@ -63,6 +62,7 @@ jobs:
           errors = []
           # required meta fields
           required_fields = ['name','description','platforms','files']
+          allowed_platforms = {'mac','linux','windows'}
 
           for d in sorted(script_dirs):
               meta_path = os.path.join(d,'meta.yml')
@@ -86,6 +86,11 @@ jobs:
               if isinstance(plats, str):
                   plats = [plats]
               plats = [p.lower() for p in plats]
+
+              # platforms must only contain allowed values
+              bad = [p for p in plats if p not in allowed_platforms]
+              if bad:
+                  errors.append(f"{name}: platforms contains unsupported values: {bad}; allowed: {sorted(list(allowed_platforms))}")
 
               files_field = meta.get('files') or []
               if isinstance(files_field, str):
@@ -133,22 +138,22 @@ jobs:
               for e in errors:
                   body += '- ' + e.replace('\n','\\n') + '\n'
 
-              # post PR review requesting changes
+              # post PR comment (issue comment API)
               owner_repo = repo
-              url = f'https://api.github.com/repos/{owner_repo}/pulls/{pr_number}/reviews'
+              url = f'https://api.github.com/repos/{owner_repo}/issues/{pr_number}/comments'
               headers = {'Authorization': f'token {token}', 'Accept': 'application/vnd.github.v3+json'}
-              payload = {'body': body, 'event': 'REQUEST_CHANGES'}
+              payload = {'body': body}
               r = requests.post(url, headers=headers, json=payload)
-              print('Create review response:', r.status_code)
+              print('Create comment response:', r.status_code)
               try:
                   print(r.json())
               except Exception:
                   print(r.text)
               if r.status_code >= 400:
-                  print('Failed to post PR review comment')
+                  print('Failed to post PR comment')
                   sys.exit(1)
 
-              print('Posted PR review requesting changes')
+              print('Posted PR comment with validation errors')
               sys.exit(1)
           else:
               print('All meta.yml validations passed')
