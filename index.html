@@ -178,6 +178,7 @@
     const qInput = document.getElementById('q');
     const form = document.getElementById('searchForm');
     let all = [];
+    const ORIGIN = window.location.origin; // read current domain/origin
 
     function readQuery(){
       const u = new URL(window.location);
@@ -203,7 +204,7 @@
     }
 
     function buildCommandObj(s){
-      const baseRaw = s.raw || s.url || (s.dir ? `https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/${encodeURIComponent(s.dir)}/${encodeURIComponent(s.files || 'install.sh')}` : '');
+      const baseRaw = s.raw || s.url || (s.dir ? `${ORIGIN}/${encodeURIComponent(s.dir)}/${encodeURIComponent(s.files || 'install.sh')}` : '');
       if(!baseRaw) return null;
       // Provide identical curl/wget commands for mac and linux; keep separate keys so UI can show platform-specific icons
       return {
@@ -420,7 +421,7 @@
     // Robust scripts.json loading: try local, then raw GitHub, and show helpful meta text
     (async function(){
       const local = 'scripts.json';
-      const raw = 'https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/scripts.json';
+      const raw = `${ORIGIN}/scripts.json`; // use current origin for fallback raw location
 
       async function fetchJson(url){
         const r = await fetch(url, { cache: 'no-store' });
