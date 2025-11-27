@@ -1,6 +1,0 @@
-name: Hello World Installer
-version: 0.1.0
-description: Example script that prints Hello World (Updated)
-author: wangsyiiz
-license: MIT
-entrypoint: install.sh
