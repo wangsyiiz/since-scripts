@@ -179,8 +179,11 @@
     const form = document.getElementById('searchForm');
     let all = [];
     const ORIGIN = window.location.origin; // read current domain/origin
-    const RAW_BASE = 'https://raw.githubusercontent.com/wangsyiiz/since-scripts/main';
-    const GITHUB_BLOB_BASE = 'https://github.com/wangsyiiz/since-scripts/blob/main';
+    const OWNER = 'wangsyiiz';
+    const REPO = 'since-scripts';
+    let DEFAULT_BRANCH = 'main';
+    let RAW_BASE = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${DEFAULT_BRANCH}`;
+    let GITHUB_BLOB_BASE = `https://github.com/${OWNER}/${REPO}/blob/${DEFAULT_BRANCH}`;
 
     function readQuery(){
       const u = new URL(window.location);
@@ -514,6 +517,19 @@
 
     // Robust scripts.json loading: try relative, then domain root, then raw GitHub
     (async function(){
+      // Try to discover repository default branch to avoid hardcoding 'main'
+      try {
+        const r = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}`, { cache: 'no-store' });
+        if (r.ok) {
+          const j = await r.json();
+          if (j && j.default_branch) DEFAULT_BRANCH = j.default_branch;
+        }
+      } catch (e) {
+        // ignore and keep fallback
+      }
+      RAW_BASE = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${DEFAULT_BRANCH}`;
+      GITHUB_BLOB_BASE = `https://github.com/${OWNER}/${REPO}/blob/${DEFAULT_BRANCH}`;
+
       const candidates = [
         'scripts.json', // relative to this page (works for project pages)
         `${ORIGIN}/scripts.json`, // domain root (useful for user/organization pages served from root)
