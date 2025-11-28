@@ -4,6 +4,13 @@ set -euo pipefail
 # Example script for Linux and macOS
 # This script demonstrates cross-platform support
 
+# Show help if requested
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+    echo "Usage: $0 [--help]"
+    echo "  --help, -h    Show this help message"
+    exit 0
+fi
+
 OS="$(uname -s)"
 
 case "$OS" in
