@@ -57,9 +57,22 @@ jobs:
             exit 0
           fi
           # extract unique script directories (scripts/<name>)
-          dirs=$(printf "%s\n" "$scripts" | awk -F/ '{print $1"/"$2}' | sort -u | tr '\n' ',' | sed 's/,$//')
-          echo "Scripts to validate: $dirs"
-          echo "list=$dirs" >> $GITHUB_OUTPUT
+          all_dirs=$(printf "%s\n" "$scripts" | awk -F/ '{print $1"/"$2}' | sort -u)
+          # filter out deleted directories (directories that no longer exist in PR HEAD)
+          existing_dirs=""
+          for d in $all_dirs; do
+            if [ -d "$d" ]; then
+              if [ -z "$existing_dirs" ]; then
+                existing_dirs="$d"
+              else
+                existing_dirs="$existing_dirs,$d"
+              fi
+            else
+              echo "Skipping deleted directory: $d"
+            fi
+          done
+          echo "Scripts to validate: $existing_dirs"
+          echo "list=$existing_dirs" >> $GITHUB_OUTPUT
 
       - name: Validate meta.yml presence for changed scripts
         run: |
