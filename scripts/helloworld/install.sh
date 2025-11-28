@@ -1,1 +1,2 @@
-echo "hello world!!! this message from Since.sh"
+#!/usr/bin/env bash
+echo "hello world!!! this message is from Since.sh"
