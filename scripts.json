@@ -1,27 +1,51 @@
 [
   {
+    "dir": "scripts/example-script",
     "name": "example-script",
-    "path": "scripts/example-script",
-    "readme": "https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/scripts/example-script/README.md"
-  },
-  {
-    "name": "example",
-    "path": "scripts/example",
-    "readme": "https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/scripts/example/README.md"
-  },
-  {
-    "name": "hello-world",
-    "path": "scripts/hello-world",
-    "readme": "https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/scripts/hello-world/README.md"
-  },
-  {
-    "name": "helloworld",
-    "path": "scripts/helloworld",
-    "readme": "https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/scripts/helloworld/README.md"
-  },
-  {
-    "name": "sample-info",
-    "path": "scripts/sample-info",
-    "readme": "https://raw.githubusercontent.com/wangsyiiz/since-scripts/main/scripts/sample-info/README.md"
+    "description": "An example script demonstrating metadata usage. Updated to trigger index.",
+    "author": "your-name",
+    "version": "0.1.0",
+    "files": "install.sh",
+    "has_readme": false
   }
-]
+,
+  {
+    "dir": "scripts/example",
+    "name": "example",
+    "description": "",
+    "author": "",
+    "version": "",
+    "files": "install.sh",
+    "has_readme": false
+  }
+,
+  {
+    "dir": "scripts/hello-world",
+    "name": "Hello World Installer",
+    "description": "Example script that prints Hello World (Updated)",
+    "author": "wangsyiiz",
+    "version": "0.1.0",
+    "files": "install.sh",
+    "has_readme": false
+  }
+,
+  {
+    "dir": "scripts/helloworld",
+    "name": "helloworld",
+    "description": "",
+    "author": "",
+    "version": "",
+    "files": "install.sh",
+    "has_readme": false
+  }
+,
+  {
+    "dir": "scripts/sample-info",
+    "name": "sample-info",
+    "description": "Sample info script for index triggering.",
+    "author": "wangsyiiz",
+    "version": "0.1.0",
+    "files": "install.sh",
+    "has_readme": true
+  }
+\n]
