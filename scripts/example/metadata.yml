@@ -1,0 +1,6 @@
+name: example
+version: 0.0.1
+author: you
+description: "An example script that supports mac, linux and Windows."
+license: MIT
+entrypoint: install.sh
