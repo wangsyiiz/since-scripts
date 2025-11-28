@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 # Grant write permission so gh-pages branch can be created/pushed
+# NOTE: If gh-pages branch is also protected, set up REPO_PAT secret (see update-index.yml comments)
 permissions:
   contents: write
 
@@ -60,7 +61,8 @@ jobs:
         if: ${{ success() }}
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Use PAT if available to bypass branch protection, otherwise use GITHUB_TOKEN
+          github_token: ${{ secrets.REPO_PAT || secrets.GITHUB_TOKEN }}
           publish_dir: ./public
           publish_branch: gh-pages
           force_orphan: true

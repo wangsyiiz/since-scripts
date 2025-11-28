@@ -2,6 +2,12 @@ name: Update scripts index
 
 # Trigger regeneration also when this workflow changes (to feed Pages later)
 # Added comment line to retrigger and integrate with Pages deployment.
+#
+# NOTE: To push to a protected main branch, you need to set up one of the following:
+# 1. Create a PAT (Personal Access Token) with 'repo' scope and add it as a repository secret named 'REPO_PAT'
+#    The PAT owner must have permission to bypass branch protection rules
+# 2. Or create a GitHub App with Contents: write permission and use the app token
+# 3. Or add a branch protection bypass rule for GitHub Actions in the repository settings
 
 on:
   push:
@@ -13,6 +19,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   build_and_commit_index:
@@ -21,6 +28,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # Use PAT if available to bypass branch protection, otherwise use GITHUB_TOKEN
+          token: ${{ secrets.REPO_PAT || secrets.GITHUB_TOKEN }}
           persist-credentials: true
 
       - name: Make indexer executable
