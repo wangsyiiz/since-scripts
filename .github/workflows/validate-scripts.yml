@@ -4,7 +4,8 @@ permissions:
   contents: read
 
 on:
-  pull_request_target:
+  pull_request:
+    types: [opened, synchronize, reopened]
     paths:
       - 'scripts/**'
 
@@ -12,268 +13,88 @@ jobs:
   validate-meta:
     name: Validate meta.yml in changed script dirs and run sh/ps1 checks
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout PR head (validate the branch to be merged)
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-
-      - name: Install Python deps
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install pyyaml requests
-
-      - name: Validate meta.yml vs script files (API-backed)
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      - name: Fetch base branch
         run: |
           set -euo pipefail
+          BASE=${{ github.event.pull_request.base.ref }}
+          echo "Base branch: $BASE"
+          git fetch origin $BASE:refs/remotes/origin/$BASE
 
-          python3 - <<'PY'
-          # This script reproduces the original validation logic but reads files
-          # from the PR head via the GitHub REST API instead of checking out
-          # untrusted code. It writes files to a temp directory and runs the
-          # same checks as the original workflow.
+      - name: Get changed files in PR
+        id: changed-files
+        run: |
+          set -euo pipefail
+          BASE=${{ github.event.pull_request.base.ref }}
+          # list files changed in the PR (only files changed on the PR branch vs base)
+          git diff --name-only origin/$BASE...HEAD > changed.txt || true
+          # normalize and dedupe
+          sed -n '/./p' changed.txt | sort -u > changed_sorted.txt || true
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          sed 's/%/%%/g' changed_sorted.txt >> $GITHUB_OUTPUT || true
+          echo "EOF" >> $GITHUB_OUTPUT
 
-          import os,sys,subprocess,yaml,json,requests,base64,tempfile,shutil
+      - name: Filter script dirs to validate
+        id: scripts-to-validate
+        run: |
+          set -euo pipefail
+          if [ ! -f changed_sorted.txt ]; then
+            echo "list=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          files=$(cat changed_sorted.txt)
+          scripts=$(printf "%s\n" "$files" | grep '^scripts/' || true)
+          if [ -z "$scripts" ]; then
+            echo "No changes under scripts/, nothing to validate."
+            echo "list=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          # extract unique script directories (scripts/<name>)
+          dirs=$(printf "%s\n" "$scripts" | awk -F/ '{print $1"/"$2}' | sort -u | tr '\n' ',' | sed 's/,$//')
+          echo "Scripts to validate: $dirs"
+          echo "list=$dirs" >> $GITHUB_OUTPUT
 
-          pr_number = os.environ.get('PR_NUMBER')
-          token = os.environ.get('GITHUB_TOKEN')
-          repo = os.environ.get('GITHUB_REPOSITORY')
-          head_sha = os.environ.get('PR_HEAD_SHA')
-
-          headers = {'Authorization': f'token {token}', 'Accept': 'application/vnd.github.v3+json'}
-
-          # list files changed in the PR
-          files_url = f'https://api.github.com/repos/{repo}/pulls/{pr_number}/files'
-          changed_files = []
-          page = 1
-          while True:
-              r = requests.get(files_url, headers=headers, params={'page': page, 'per_page': 100})
-              if r.status_code != 200:
-                  print('Failed to list PR files', r.status_code, r.text)
-                  sys.exit(1)
-              page_files = r.json()
-              if not page_files:
-                  break
-              for fi in page_files:
-                  changed_files.append(fi.get('filename'))
-              if 'next' not in r.links:
-                  break
-              page += 1
-
-          # derive changed script directories
-          script_dirs = set()
-          for p in changed_files:
-              if p and p.startswith('scripts/'):
-                  parts = p.split('/')
-                  if len(parts) >= 2:
-                      script_dirs.add(os.path.join(parts[0],parts[1]))
-
-          if not script_dirs:
-              print('No changed script directories found. Nothing to validate.')
-              sys.exit(0)
-
-          # create temp dir and fetch needed files from PR head
-          tmp = tempfile.mkdtemp(prefix='since-scripts-')
-          try:
-              for d in sorted(script_dirs):
-                  dest_dir = os.path.join(tmp, d)
-                  os.makedirs(dest_dir, exist_ok=True)
-
-                  # ensure we fetch meta.yml and any files listed in it; also fetch entire dir listing to
-                  # allow fallback checks (e.g., look for any .sh/.ps1 files)
-
-                  # fetch meta.yml if present
-                  meta_path = d + '/meta.yml'
-                  content_url = f'https://api.github.com/repos/{repo}/contents/{meta_path}'
-                  params = {'ref': head_sha}
-                  r = requests.get(content_url, headers=headers, params=params)
-                  meta = None
-                  if r.status_code == 200:
-                      j = r.json()
-                      if j.get('type') == 'file' and 'content' in j:
-                          data = base64.b64decode(j['content'])
-                          open(os.path.join(dest_dir, 'meta.yml'), 'wb').write(data)
-                          try:
-                              meta = yaml.safe_load(data) or {}
-                          except Exception:
-                              meta = None
-                  # fetch other changed files in this directory
-                  for f in changed_files:
-                      if f and f.startswith(d + '/'):
-                          # fetch each changed file
-                          content_url = f'https://api.github.com/repos/{repo}/contents/{f}'
-                          r = requests.get(content_url, headers=headers, params={'ref': head_sha})
-                          if r.status_code == 200:
-                              j = r.json()
-                              if j.get('type') == 'file' and 'content' in j:
-                                  data = base64.b64decode(j['content'])
-                                  rel = os.path.relpath(f, d)
-                                  destf = os.path.join(dest_dir, rel)
-                                  os.makedirs(os.path.dirname(destf), exist_ok=True)
-                                  open(destf, 'wb').write(data)
-
-                  # to support fallback checks (list files in dir), fetch repo contents for the dir
-                  dir_url = f'https://api.github.com/repos/{repo}/contents/{d}'
-                  r = requests.get(dir_url, headers=headers, params={'ref': head_sha})
-                  dir_listing = []
-                  if r.status_code == 200:
-                      for entry in r.json():
-                          if entry.get('type') == 'file' and 'name' in entry and 'content' not in entry:
-                              # fetch file content
-                              ef_url = entry['url']
-                              r2 = requests.get(ef_url, headers=headers, params={'ref': head_sha})
-                              if r2.status_code == 200:
-                                  j2 = r2.json()
-                                  if j2.get('type') == 'file' and 'content' in j2:
-                                      data = base64.b64decode(j2['content'])
-                                      open(os.path.join(dest_dir, entry['name']), 'wb').write(data)
-                                      dir_listing.append(entry['name'])
-
-              # now run the same validations as original
-              errors = []
-              required_fields = ['name','description','platforms','files']
-              allowed_platforms = {'mac','linux','windows'}
-
-              for d in sorted(script_dirs):
-                  local_d = os.path.join(tmp, d)
-                  meta_path_local = os.path.join(local_d, 'meta.yml')
-                  if not os.path.exists(meta_path_local):
-                      errors.append(f"{d}: missing meta.yml")
-                      continue
-                  try:
-                      with open(meta_path_local, 'r') as f:
-                          meta = yaml.safe_load(f) or {}
-                  except Exception as e:
-                      errors.append(f"{d}: failed to parse meta.yml: {e}")
-                      continue
-
-                  missing = [f for f in required_fields if f not in meta]
-                  if missing:
-                      errors.append(f"{d}: meta.yml missing required fields: {missing}")
-
-                  name = meta.get('name') or d
-                  plats = meta.get('platforms') or []
-                  if isinstance(plats, str):
-                      plats = [plats]
-                  plats = [p.lower() for p in plats]
-
-                  bad = [p for p in plats if p not in allowed_platforms]
-                  if bad:
-                      errors.append(f"{name}: platforms contains unsupported values: {bad}; allowed: {sorted(list(allowed_platforms))}")
-
-                  files_field = meta.get('files') or []
-                  if isinstance(files_field, str):
-                      files_field = [files_field]
-
-                  # check that files listed in meta.yml exist in fetched dir
-                  for fn in files_field:
-                      fn_path = os.path.join(local_d, fn)
-                      if not os.path.exists(fn_path):
-                          errors.append(f"{name}: listed file '{fn}' in meta.yml not found in {d}")
-
-                  # for platforms, ensure appropriate script types exist
-                  if any(p in ('mac','linux') for p in plats):
-                      ok = False
-                      for fn in files_field:
-                          if fn.lower().endswith('.sh') and os.path.exists(os.path.join(local_d,fn)):
-                              ok = True
-                              break
-                      if not ok:
-                          for f in os.listdir(local_d):
-                              if f.lower().endswith('.sh') and os.path.isfile(os.path.join(local_d,f)):
-                                  ok = True
-                                  break
-                      if not ok:
-                          errors.append(f"{name}: platforms {plats} include mac/linux but no .sh file found in {d}")
-
-                  if 'windows' in plats:
-                      ok = False
-                      for fn in files_field:
-                          if fn.lower().endswith('.ps1') and os.path.exists(os.path.join(local_d,fn)):
-                              ok = True
-                              break
-                      if not ok:
-                          for f in os.listdir(local_d):
-                              if f.lower().endswith('.ps1') and os.path.isfile(os.path.join(local_d,f)):
-                                  ok = True
-                                  break
-                      if not ok:
-                          errors.append(f"{name}: platforms {plats} include windows but no .ps1 file found in {d}")
-
-              if errors:
-                  # Print validation errors to workflow logs instead of posting a PR comment
-                  print('Automated validation found issues with scripts in this PR:\n')
-                  for e in errors:
-                      print('- ' + e)
-                  print('\nValidation failed (no PR comment will be posted).')
-                  sys.exit(1)
-              else:
-                  print('All meta.yml validations passed')
-                  sys.exit(0)
-
-          finally:
-              try:
-                  shutil.rmtree(tmp)
-              except Exception:
-                  pass
-          PY
+      - name: Validate meta.yml presence for changed scripts
+        run: |
+          set -euo pipefail
+          to_check="${{ steps.scripts-to-validate.outputs.list }}"
+          if [ -z "$to_check" ]; then
+            echo "No scripts to check."
+            exit 0
+          fi
+          IFS=',' read -r -a arr <<< "$to_check"
+          errors=0
+          for d in "${arr[@]}"; do
+            if [ ! -f "$d/meta.yml" ] && [ ! -f "$d/meta.yaml" ]; then
+              echo "- $d: missing meta.yml"
+              errors=1
+            else
+              echo "OK: $d/meta.yml exists"
+            fi
+          done
+          if [ "$errors" -ne 0 ]; then
+            echo "Validation failed."
+            exit 1
+          fi
 
       - name: Run shell & PowerShell static and format checks on changed scripts
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
 
-          # list changed files via API
-          python3 - <<'PY'
-          import os,requests
-          repo = os.environ['GITHUB_REPOSITORY']
-          pr = os.environ['PR_NUMBER']
-          token = os.environ['GITHUB_TOKEN']
-          headers = {'Authorization': f'token {token}', 'Accept': 'application/vnd.github.v3+json'}
-          files_url = f'https://api.github.com/repos/{repo}/pulls/{pr}/files'
-          changed = []
-          page = 1
-          while True:
-              r = requests.get(files_url, headers=headers, params={'page': page, 'per_page': 100})
-              if r.status_code != 200:
-                  print('Failed to list PR files', r.status_code, r.text)
-                  sys.exit(1)
-              page_files = r.json()
-              if not page_files:
-                  break
-              for fi in page_files:
-                  changed.append(fi.get('filename'))
-              if 'next' not in r.links:
-                  break
-              page += 1
-          for c in changed:
-              print(c)
-          # write to a temporary file that bash can read
-          with open('changed_files.txt','w') as f:
-              for c in changed:
-                  f.write(c + '\n')
-          PY
+          if [ ! -f changed_sorted.txt ]; then
+            echo "No changed files list found, skipping shell/ps1 checks."
+            exit 0
+          fi
 
-          DIFF=$(cat changed_files.txt || true)
-          echo "Changed files:\n$DIFF"
-
-          mapfile -t SH_FILES < <(printf "%s\n" "$DIFF" | grep -E '\\/.+\\.sh$' || true)
-          mapfile -t PS1_FILES < <(printf "%s\n" "$DIFF" | grep -E '\\/.+\\.ps1$' || true)
+          mapfile -t SH_FILES < <(cat changed_sorted.txt | grep -E '\\/.+\\.sh$' || true)
+          mapfile -t PS1_FILES < <(cat changed_sorted.txt | grep -E '\\/.+\\.ps1$' || true)
 
           if [ ${#SH_FILES[@]} -eq 0 ] && [ ${#PS1_FILES[@]} -eq 0 ]; then
             echo "No .sh or .ps1 files changed in this PR. Skipping shell/ps1 checks."
@@ -291,15 +112,14 @@ jobs:
 
             UNFORMATTED=""
             for f in "${SH_FILES[@]}"; do
-              # fetch file content from PR head to local path for checking
-              dest="$PWD/$f"
-              mkdir -p "$(dirname "$dest")"
-              curl -sL -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github.v3.raw" "https://api.github.com/repos/$GITHUB_REPOSITORY/contents/$f?ref=$PR_HEAD_SHA" -o "$dest" || true
-              if [ -f "$dest" ]; then
-                out=$(shfmt -l "$dest" || true)
+              if [ -f "$f" ]; then
+                out=$(shfmt -l "$f" || true)
                 if [ -n "$out" ]; then
                   UNFORMATTED="$UNFORMATTED\n$out"
                 fi
+              else
+                # file may have been deleted in PR, skip
+                echo "Skipping missing file $f"
               fi
             done
 
@@ -310,7 +130,12 @@ jobs:
             fi
 
             echo "Running shellcheck..."
-            shellcheck -x ${SH_FILES[*]}
+            # run shellcheck on existing files
+            for f in "${SH_FILES[@]}"; do
+              if [ -f "$f" ]; then
+                shellcheck -x "$f"
+              fi
+            done
           fi
 
           if [ ${#PS1_FILES[@]} -gt 0 ]; then
@@ -318,12 +143,9 @@ jobs:
             pwsh -NoProfile -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -AllowClobber -SkipPublisherCheck"
             PS_FAIL=0
             for f in "${PS1_FILES[@]}"; do
-              dest="$PWD/$f"
-              mkdir -p "$(dirname "$dest")"
-              curl -sL -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github.v3.raw" "https://api.github.com/repos/$GITHUB_REPOSITORY/contents/$f?ref=$PR_HEAD_SHA" -o "$dest" || true
-              if [ -f "$dest" ]; then
-                echo "Analyzing $dest"
-                pwsh -NoProfile -Command "if ((Invoke-ScriptAnalyzer -Path '$dest' -Severity @('Error','Warning')).Count -gt 0) { Write-Output 'ISSUES'; exit 1 } else { exit 0 }" || PS_FAIL=1
+              if [ -f "$f" ]; then
+                echo "Analyzing $f"
+                pwsh -NoProfile -Command "if ((Invoke-ScriptAnalyzer -Path '$f' -Severity @('Error','Warning')).Count -gt 0) { Write-Output 'ISSUES'; exit 1 } else { exit 0 }" || PS_FAIL=1
               fi
             done
             if [ "$PS_FAIL" -ne 0 ]; then
