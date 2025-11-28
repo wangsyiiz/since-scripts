@@ -1,8 +1,7 @@
-name: Validate scripts on PR (comment + checks)
+name: Validate scripts on PR (checks only)
 
 permissions:
   contents: read
-  issues: write
 
 on:
   pull_request_target:
@@ -11,7 +10,7 @@ on:
 
 jobs:
   validate-meta:
-    name: Validate meta.yml in changed script dirs, post PR comment, and run sh/ps1 checks
+    name: Validate meta.yml in changed script dirs and run sh/ps1 checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout base ref (do not checkout PR head)
@@ -30,7 +29,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pyyaml requests
 
-      - name: Validate meta.yml vs script files and post PR comment (API-backed)
+      - name: Validate meta.yml vs script files (API-backed)
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -213,26 +212,11 @@ jobs:
                           errors.append(f"{name}: platforms {plats} include windows but no .ps1 file found in {d}")
 
               if errors:
-                  body = 'Automated validation found issues with scripts in this PR:\n\n'
+                  # Print validation errors to workflow logs instead of posting a PR comment
+                  print('Automated validation found issues with scripts in this PR:\n')
                   for e in errors:
-                      body += '- ' + e.replace('\n','\\n') + '\n'
-
-                  # post PR comment (issue comment API)
-                  owner_repo = repo
-                  url = f'https://api.github.com/repos/{owner_repo}/issues/{pr_number}/comments'
-                  headers = {'Authorization': f'token {token}', 'Accept': 'application/vnd.github.v3+json'}
-                  payload = {'body': body}
-                  r = requests.post(url, headers=headers, json=payload)
-                  print('Create comment response:', r.status_code)
-                  try:
-                      print(r.json())
-                  except Exception:
-                      print(r.text)
-                  if r.status_code >= 400:
-                      print('Failed to post PR comment')
-                      sys.exit(1)
-
-                  print('Posted PR comment with validation errors')
+                      print('- ' + e)
+                  print('\nValidation failed (no PR comment will be posted).')
                   sys.exit(1)
               else:
                   print('All meta.yml validations passed')
