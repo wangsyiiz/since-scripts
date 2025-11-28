@@ -1,24 +1,28 @@
-# example
+# Example Script
 
-An example script that supports mac, linux and Windows.
+A cross-platform example script supporting Linux, macOS, and Windows.
 
-- Author: you
-- Version: 0.0.1
-- Platforms: mac, linux, windows
-- Files: `install.sh` (and platform-specific files if any)
+## Platforms
 
-Usage (mac / linux):
+- **Linux**: Run `install.sh`
+- **macOS**: Run `install.sh`
+- **Windows**: Run `install.ps1` in PowerShell
+
+## Usage
+
+### Linux / macOS
 
 ```bash
 chmod +x install.sh
 ./install.sh
 ```
 
-Usage (Windows PowerShell):
+### Windows
 
 ```powershell
-# 如有 PowerShell 脚本，请按其说明运行
 .\install.ps1
 ```
 
-说明：此目录包含跨平台示例脚本。请根据所用平台选择并运行相应的安装/执行脚本。
+## Description
+
+This example script demonstrates how to create a cross-platform installation script that works on multiple operating systems.

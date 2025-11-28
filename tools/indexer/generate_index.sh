@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Simple index generator for scripts/* directories
-# It looks for a metadata.yml in each script folder with keys: name, description, author, version
+# It looks for a meta.yml in each script folder with keys: name, description, author, version
 # Produces scripts.json at the repository root. It no longer overwrites index.html to avoid UI changes.
 
 # When moved to tools/indexer, compute repository root reliably (two levels up from this script)
@@ -16,7 +16,7 @@ echo "[" > "$OUT_JSON"
 first=true
 for d in scripts/*/; do
   [ -d "$d" ] || continue
-  meta="$d/metadata.yml"
+  meta="$d/meta.yml"
   name="$(basename "$d")"
   description=""
   author=""
@@ -59,7 +59,7 @@ EOF
 
 done
 # end JSON array
-echo "\n]" >> "$OUT_JSON"
+echo "]" >> "$OUT_JSON"
 
 # done
 printf "Generated %s\n" "$OUT_JSON"

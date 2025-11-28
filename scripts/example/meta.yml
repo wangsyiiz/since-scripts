@@ -1,6 +1,9 @@
-name: example
-version: 0.0.1
-author: you
-description: "An example script for mac and linux (bash). Windows support requires additional PowerShell files."
+name: Example Script
+version: 1.0.0
+description: A cross-platform example script supporting Linux, macOS, and Windows
+author: wangsyiiz
 license: MIT
-entrypoint: install.sh
+platforms:
+  - linux
+  - macOS
+  - windows
