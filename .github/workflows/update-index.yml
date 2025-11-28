@@ -14,7 +14,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   build_and_commit_index:
@@ -31,64 +30,26 @@ jobs:
       - name: Run index generator
         run: tools/indexer/generate_index.sh
 
-      - name: Check for changes
-        id: check_changes
+      - name: Commit and push changes
         run: |
           # Check if either file has been modified by the indexer
           if [ -f scripts.json ] && [ -f index.html ]; then
             if git diff --quiet scripts.json index.html; then
-              echo "changed=false" >> $GITHUB_OUTPUT
+              echo "No changes detected, skipping commit"
             else
-              echo "changed=true" >> $GITHUB_OUTPUT
+              # Configure git
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              
+              # Stage and commit changes
+              git add scripts.json index.html
+              git commit -m "chore: update scripts index"
+              
+              # Push changes directly to main
+              git push
+              
+              echo "Changes committed and pushed successfully"
             fi
           else
             echo "One or more files not found, skipping..."
-            echo "changed=false" >> $GITHUB_OUTPUT
           fi
-
-      - name: Create PR with updated index
-        if: steps.check_changes.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Configure git
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
-          # Create a unique branch name
-          BRANCH_NAME="update-index-$(date +%Y%m%d%H%M%S)"
-          
-          # Create and checkout new branch
-          git checkout -b "$BRANCH_NAME"
-          
-          # Stage and commit changes
-          git add scripts.json index.html
-          git commit -m "chore: update scripts index"
-          
-          # Push the branch
-          git push origin "$BRANCH_NAME"
-          
-          # Create PR
-          PR_URL=$(gh pr create \
-            --title "chore: update scripts index" \
-            --body "Automatically generated PR to update scripts.json and index.html" \
-            --base main \
-            --head "$BRANCH_NAME")
-          
-          echo "Created PR: $PR_URL"
-          
-          # Extract PR number from URL (format: https://github.com/owner/repo/pull/123)
-          PR_NUMBER=$(echo "$PR_URL" | sed 's/.*\/pull\///')
-          echo "PR Number: $PR_NUMBER"
-          
-          # Try to merge the PR directly (works if no approval required)
-          # If auto-merge is enabled in repo settings, use --auto flag
-          echo "Attempting to merge PR #$PR_NUMBER..."
-          if gh pr merge "$PR_NUMBER" --merge --delete-branch; then
-            echo "PR #$PR_NUMBER merged successfully"
-          else
-            echo "Direct merge failed, enabling auto-merge..."
-            gh pr merge "$PR_NUMBER" --auto --merge --delete-branch || echo "Auto-merge enabled or will merge when requirements are met"
-          fi
-          
-          echo "PR #$PR_NUMBER has been processed"
