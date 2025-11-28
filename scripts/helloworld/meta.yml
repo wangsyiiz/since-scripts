@@ -1,6 +1,0 @@
-name: helloworld
-version: 0.1.0
-author: wangsyiiz
-description: "A tiny script that prints Hello World."
-license: MIT
-entrypoint: install.sh

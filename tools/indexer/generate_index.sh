@@ -59,7 +59,7 @@ EOF
 
 done
 # end JSON array
-echo "\n]" >> "$OUT_JSON"
+echo "]" >> "$OUT_JSON"
 
 # done
 printf "Generated %s\n" "$OUT_JSON"

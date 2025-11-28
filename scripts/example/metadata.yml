@@ -1,0 +1,9 @@
+name: Example Script
+version: 1.0.0
+description: A cross-platform example script supporting Linux, macOS, and Windows
+author: wangsyiiz
+license: MIT
+platforms:
+  - linux
+  - macos
+  - windows

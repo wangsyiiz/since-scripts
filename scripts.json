@@ -1,51 +1,11 @@
 [
   {
-    "dir": "scripts/example-script",
-    "name": "example-script",
-    "description": "An example script demonstrating metadata usage. Updated to trigger index.",
-    "author": "your-name",
-    "version": "0.1.0",
-    "files": "install.sh",
-    "has_readme": false
-  }
-,
-  {
     "dir": "scripts/example",
-    "name": "example",
-    "description": "",
-    "author": "",
-    "version": "",
-    "files": "install.sh",
-    "has_readme": false
-  }
-,
-  {
-    "dir": "scripts/hello-world",
-    "name": "Hello World Installer",
-    "description": "Example script that prints Hello World (Updated)",
+    "name": "Example Script",
+    "description": "A cross-platform example script supporting Linux, macOS, and Windows",
     "author": "wangsyiiz",
-    "version": "0.1.0",
-    "files": "install.sh",
-    "has_readme": false
-  }
-,
-  {
-    "dir": "scripts/helloworld",
-    "name": "helloworld",
-    "description": "",
-    "author": "",
-    "version": "",
-    "files": "install.sh",
-    "has_readme": false
-  }
-,
-  {
-    "dir": "scripts/sample-info",
-    "name": "sample-info",
-    "description": "Sample info script for index triggering.",
-    "author": "wangsyiiz",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "files": "install.sh",
     "has_readme": true
   }
-\n]
+]
