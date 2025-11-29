@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Since Scripts</title>
+  <meta name="description" content="Search, browse and discover handy scripts from this repo" />
+  <!-- Preconnect + Inter + Noto Sans SC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --accent:#2563eb; /* fallback blue */
+      --accent-600:#1d4ed8;
+      --text:#0f172a;
+      --muted:#50606a;
+      --border:#e6e9ec;
+      --bg:#ffffff;
+      --card:#ffffff; /* fully opaque card background */
+      --dot-color: 15,23,42; /* rgb for dots (will be used with alpha variable) */
+      --dot-size: 0.5px; /* smaller dot radius */
+      --dot-alpha: 0.04; /* lighter dots */
+      --dot-spacing: 12px;
+      --btn-gradient: linear-gradient(to right, rgb(218, 68, 83), rgb(137, 33, 107));
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: "Inter", "Noto Sans SC", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color:var(--text); background:var(--bg);
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      position:relative;
+      z-index:0;
+    }
+
+    /* ensure form elements inherit the UI font */
+    input, button, textarea, select { font-family: inherit; }
+
+    /* dotted background layer placed behind everything */
+    body::before{
+      content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+      background-image:
+        radial-gradient(circle, rgba(var(--dot-color), var(--dot-alpha)) var(--dot-size), transparent calc(var(--dot-size) + 1px));
+      background-size: var(--dot-spacing) var(--dot-spacing);
+      background-position: center;
+      mix-blend-mode: normal;
+      opacity:1;
+    }
+
+    .hero{
+      position:relative; text-align:center; padding:48px 20px; width:100%; max-width:920px; margin:28px auto 0; isolation:isolate;
+      display:block; z-index:1; /* ensure content is above dots */
+    }
+
+    h1{font-size:48px; line-height:1.08; margin:0 0 12px; font-weight:800; letter-spacing:-.02em}
+    .sub{max-width:760px; margin:0 auto; color:var(--muted); font-size:18px; line-height:1.6}
+
+    .search-wrap{margin-top:26px}
+    .search{
+      display:flex; align-items:center; gap:0; width:100%; max-width:680px; margin:0 auto; background:#fff;
+      border:1px solid var(--border); border-radius:12px; box-shadow:0 6px 18px rgba(4,6,15,.04);
+      overflow:hidden; z-index:1; position:relative;
+    }
+
+    .icon{padding:0 10px 0 14px; color:#a8b3b9; display:flex; align-items:center}
+    .search input{
+      flex:1; height:52px; border:0; outline:none; font-size:16px; color:var(--text);
+      background:#fff; padding:0 12px;
+    }
+    .search button{
+      height:52px; padding:0 18px; border:0; color:#fff; background:var(--btn-gradient); font-weight:700; cursor:pointer;
+      transition:opacity .12s ease; border-left:1px solid var(--border);
+    }
+    .search button:hover{opacity:0.95}
+
+    .meta{margin-top:12px; color:var(--muted); font-size:14px}
+    .badge{display:inline-block; background:#f1f5f9; color:var(--accent-600); padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; margin-right:8px}
+
+    .container{width:100%; max-width:980px; margin:18px auto 48px; padding:0 16px; z-index:1; position:relative}
+    /* single-column flow like original layout */
+    .results{margin-top:18px; display:flex; flex-direction:column; gap:14px}
+
+    .card{
+      background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px;
+      box-shadow:0 1px 2px rgba(4,6,15,.04); display:flex; flex-direction:column; gap:10px; position:relative; z-index:2;
+    }
+    .card h3{margin:0; font-size:18px}
+    .card p{margin:0; color:var(--muted); font-size:14px}
+
+    .card-header{display:flex; align-items:center; gap:8px; margin-bottom:4px}
+    .readme-link{display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:6px; background:rgba(37,99,235,0.08); border:1px solid rgba(37,99,235,0.18); transition:background .15s ease, transform .15s ease; cursor:pointer}
+    .readme-link:hover{background:rgba(37,99,235,0.18); transform:translateY(-1px)}
+    .readme-link img{width:16px; height:16px}
+
+    /* platform icons (top-right of card) */
+    .platforms{position:absolute; top:12px; right:12px; display:flex; gap:8px; align-items:center}
+    .platforms button{display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:rgba(255,255,255,0.9); border:1px solid rgba(0,0,0,0.04); padding:4px; cursor:default}
+    .platforms svg, .platforms img{width:18px;height:18px;color:var(--muted);}
+
+    /* copy command area */
+    .copy-box{background:#f8fafb; border:1px solid #e6eef2; border-radius:8px; padding:10px 12px; display:flex; align-items:center; gap:10px}
+    .cmd{font-size:13px; color:#0b1720; white-space:pre-wrap; word-break:break-all; flex:1}
+    .copy-btn{background:var(--btn-gradient); color:#fff; border:0; padding:8px 10px; border-radius:8px; cursor:pointer; font-weight:700}
+    .copy-btn:active{transform:translateY(1px)}
+
+    /* GitHub Icon */
+    .github-icon {
+      position: absolute;
+      top: 0px;
+      right: 24px;
+      color: var(--muted);
+      transition: all 0.2s ease;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      width: 40px;
+      height: 40px;
+    }
+    .github-icon:hover {
+      color: var(--text);
+      transform: scale(1.1);
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .github-icon svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
+    }
+   .card-footer{display:flex; gap:12px; font-size:13px; color:var(--muted); align-items:center; justify-content:space-between; flex-wrap:wrap}
+    .meta-left{display:flex; gap:10px; align-items:center}
+    .meta-right{color:#8aa8b2; font-size:13px}
+
+    .empty{margin:24px 0; text-align:center; color:var(--muted)}
+
+    .hl{ color:var(--accent); font-weight:700 }
+
+    @media (max-width:680px){ h1{font-size:36px} .sub{font-size:16px} .copy-btn{padding:8px 10px} .platforms{top:10px; right:10px} }
+  </style>
+</head>
+<body>
+  <a href="https://github.com/wangsyiiz/since-scripts" target="_blank" class="github-icon" aria-label="View source on GitHub">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+  </a>
+  <header class="hero">
+    <h1>Since scripts</h1>
+    <p class="sub">Quickly find scripts in this repository. Search by name or description — no extra setup required.</p>
+
+    <div class="search-wrap">
+      <form id="searchForm" class="search" role="search">
+        <span class="icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </span>
+        <input id="q" name="q" type="search" placeholder="Search for a script name or description" autocomplete="off" />
+        <button type="submit">Search</button>
+      </form>
+      <div class="meta"><span class="badge">Info</span><span id="metaText">Loading…</span></div>
+    </div>
+
+  </header>
+
+  <main class="container">
+    <section id="results" class="results" aria-live="polite"></section>
+    <div id="empty" class="empty" style="display:none">No matching scripts. Try another keyword.</div>
+  </main>
+
+  <script>
+  (function(){
+    const resultsEl = document.getElementById('results');
+    const emptyEl = document.getElementById('empty');
+    const metaEl = document.getElementById('metaText');
+    const qInput = document.getElementById('q');
+    const form = document.getElementById('searchForm');
+    let all = [];
+    const ORIGIN = window.location.origin; // read current domain/origin
+    const OWNER = 'wangsyiiz';
+    const REPO = 'since-scripts';
+    let DEFAULT_BRANCH = 'main';
+    let RAW_BASE = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${DEFAULT_BRANCH}`;
+    let GITHUB_BLOB_BASE = `https://github.com/${OWNER}/${REPO}/blob/${DEFAULT_BRANCH}`;
+
+    function readQuery(){
+      const u = new URL(window.location);
+      return (u.searchParams.get('q')||'').trim();
+    }
+    function writeQuery(q){
+      const u = new URL(window.location);
+      if(q) u.searchParams.set('q', q); else u.searchParams.delete('q');
+      history.replaceState(null, '', u);
+    }
+
+    function escapeHTML(str){
+      return (str+"").replace(/[&<>\"']/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]));
+    }
+    function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+    function formatDate(d){
+      try{
+        const dt = new Date(d);
+        if(isNaN(dt)) return d||'';
+        return dt.toLocaleDateString();
+      }catch(e){return d||''}
+    }
+
+    // Encode each path segment separately to preserve slashes
+    function joinPathEncoded(...parts){
+      return parts.map(p => String(p||'').split('/').map(encodeURIComponent).join('/')).join('/').replace(/\\+/g, '/');
+    }
+    function makeRawGithubUrl(filePath){
+      const encoded = joinPathEncoded(filePath);
+      return `${RAW_BASE}/${encoded}`;
+    }
+    function makeGithubBlobUrl(filePath){
+      const encoded = joinPathEncoded(filePath);
+      return `${GITHUB_BLOB_BASE}/${encoded}`;
+    }
+
+    function buildCommandObj(s){
+      // Generate platform-specific command strings only for the platforms the script advertises support for.
+      const supported = getPlatforms(s);
+      // helper to determine basename of dir
+      const parts = (s.dir||'').split('/').filter(Boolean);
+      const base = parts.length ? parts[parts.length-1] : s.dir || '';
+
+      const obj = {};
+
+      // Prefer explicit per-platform overrides when present
+      const explicitRaw = (typeof s.raw === 'string') ? s.raw : null;
+      const explicitUrl = (typeof s.url === 'string') ? s.url : null;
+      const explicitRawPs = (typeof s.raw_ps === 'string') ? s.raw_ps : null;
+      const explicitPs = (typeof s.ps1 === 'string') ? s.ps1 : null;
+
+      // Determine filenames
+      const shellFile = (typeof s.files === 'string' && s.files) ? s.files : 'install.sh';
+      // Derive a sensible PowerShell filename: prefer explicit ps1 field, otherwise try to replace extension, otherwise default
+      let psFile = 'install.ps1';
+      if(explicitPs) psFile = explicitPs;
+      else if(typeof s.files === 'string' && s.files){
+        const idx = s.files.lastIndexOf('.');
+        if(idx > 0){
+          psFile = s.files.slice(0, idx) + '.ps1';
+        }else{
+          psFile = s.files + '.ps1';
+        }
+      }
+
+      // Shell (mac/linux)
+      if(supported.includes('mac') || supported.includes('linux')){
+        let target = null;
+        if(explicitRaw && !supported.includes('windows')){
+          // if explicit raw provided and not windows-only, use it for shell platforms
+          target = explicitRaw;
+        }else if(explicitUrl){
+          target = explicitUrl;
+        }else if(s.dir){
+          const rel = './' + joinPathEncoded(base, shellFile);
+          target = new URL(rel, window.location.href).href;
+        }
+        if(target){
+          obj.mac = obj.mac || {};
+          obj.linux = obj.linux || {};
+          obj.mac.curl = `curl -sSL ${target} | bash`;
+          obj.mac.wget = `wget -qO- ${target} | bash`;
+          obj.linux.curl = obj.mac.curl;
+          obj.linux.wget = obj.mac.wget;
+        }
+      }
+
+      // Windows (PowerShell)
+      if(supported.includes('windows')){
+        let targetPs = null;
+        if(explicitRawPs){
+          targetPs = explicitRawPs;
+        }else if(explicitUrl && /\.ps1($|\?|#)/i.test(explicitUrl)){
+          // if explicit url points to ps1, prefer it for windows
+          targetPs = explicitUrl;
+        }else if(s.dir){
+          const relPs = './' + joinPathEncoded(base, psFile);
+          targetPs = new URL(relPs, window.location.href).href;
+        }else if(explicitRaw){
+          // as a last resort, try to reuse explicit raw and hope it's the correct file
+          targetPs = explicitRaw;
+        }
+
+        if(targetPs){
+          obj.windows = obj.windows || {};
+          // Use PowerShell (Windows PowerShell) and pwsh (PowerShell Core) variants
+          // Escape single quotes in URL for use inside single-quoted PowerShell string if needed
+          const quoted = targetPs.replace(/'/g, "'\"'\"");
+          obj.windows.powershell = `powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (New-Object Net.WebClient).DownloadString('${targetPs}')"`;
+          obj.windows.pwsh = `pwsh -c \"iwr -useb ${targetPs} | iex\"`;
+        }
+      }
+
+      // Provide helpful fallback raw GitHub URL for debugging when a dir is present
+      obj._fallbacks = {
+        raw: (s.dir ? makeRawGithubUrl((s.dir + '/' + (s.files || 'install.sh')).replace(/\\+/g, '/')) : null),
+        ps_raw: (s.dir ? makeRawGithubUrl((s.dir + '/' + psFile).replace(/\\+/g, '/')) : null)
+      };
+
+      // If object is empty (no platforms matched or no targets resolved), return null
+      if(Object.keys(obj).length === 1 && obj._fallbacks) return obj; // still return fallbacks
+      if(Object.keys(obj).length === 0) return null;
+      return obj;
+    }
+
+    function buildReadmeUrl(s){
+      // Prefer an explicit readme URL if provided
+      if(s.readme && typeof s.readme === 'string'){
+        const r = s.readme;
+        if(/^https?:\/\//i.test(r)) return r;
+        // try to resolve relative to current page, but prefer a GitHub blob URL for repository-hosted README
+        return makeGithubBlobUrl(r);
+      }
+      // If dir is present, assume README.md under that dir on GitHub
+      if(s.dir){
+        const candidate = (s.dir + '/README.md').replace(/\\+/g, '/');
+        // Prefer GitHub blob (web view) so the README is nicely rendered
+        return makeGithubBlobUrl(candidate);
+      }
+      return null;
+    }
+
+    function getPlatforms(s){
+      if(Array.isArray(s.platforms)) return s.platforms.map(p=>String(p||'').toLowerCase()).filter(Boolean);
+      if(typeof s.platforms === 'string') return s.platforms.split(',').map(p=>p.trim().toLowerCase()).filter(Boolean);
+      // default: support mac and linux (previously 'unix') and windows
+      return ['mac','linux','windows'];
+    }
+
+    function highlightHTML(text, term){
+      if(!term) return escapeHTML(text);
+      const tokens = (term||'').split(/\\s+/).filter(Boolean).map(t=>escapeRegExp(t));
+      if(tokens.length===0) return escapeHTML(text);
+      const re = new RegExp('(' + tokens.join('|') + ')', 'ig');
+      return escapeHTML(text).replace(re, '<span class="hl">$1</span>');
+    }
+
+    function render(list, term){
+      resultsEl.innerHTML = '';
+      if(!list || list.length===0){
+        emptyEl.style.display='block';
+        return;
+      }
+      emptyEl.style.display='none';
+      const frag = document.createDocumentFragment();
+      const q = term || '';
+      list.forEach(s=>{
+        const a = document.createElement('article');
+        a.className = 'card';
+
+        const titleHTML = highlightHTML(s.name||'Untitled', q);
+        const descHTML = highlightHTML(s.description||'', q);
+
+          const header = document.createElement('div');
+          header.className = 'card-header';
+          const titleEl = document.createElement('h3');
+          titleEl.innerHTML = titleHTML;
+          header.appendChild(titleEl);
+          const readmeUrl = buildReadmeUrl(s);
+          if(readmeUrl){
+            const docLink = document.createElement('a');
+            docLink.className = 'readme-link';
+            docLink.href = readmeUrl;
+            docLink.title = 'Open README';
+            docLink.setAttribute('aria-label', `Open README for ${s.name || 'this script'}`);
+            docLink.innerHTML = `<img src="assets/icons/link.svg" alt="" aria-hidden="true" width="16" height="16" />`;
+            header.appendChild(docLink);
+          }
+          a.appendChild(header);
+
+          const descEl = document.createElement('p');
+          descEl.innerHTML = descHTML;
+          a.appendChild(descEl);
+
+        // platform icons (top-right of card)
+        const platforms = getPlatforms(s);
+        const platWrap = document.createElement('div');
+        platWrap.className = 'platforms';
+
+        if(platforms.includes('mac')){
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.title = 'macOS';
+          btn.setAttribute('aria-label','macOS');
+          btn.innerHTML = `<img src="assets/icons/apple.svg" alt="macOS" width="18" height="18" aria-hidden="true" />`;
+          platWrap.appendChild(btn);
+        }
+        if(platforms.includes('linux')){
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.title = 'Linux';
+          btn.setAttribute('aria-label','Linux');
+          btn.innerHTML = `<img src="assets/icons/linux-tux.svg" alt="Linux" width="18" height="18" aria-hidden="true" />`;
+          platWrap.appendChild(btn);
+        }
+        if(platforms.includes('windows')){
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.title = 'Windows';
+          btn.setAttribute('aria-label','Windows');
+          btn.innerHTML = `<img src="assets/icons/windows.svg" alt="Windows" width="18" height="18" aria-hidden="true" />`;
+          platWrap.appendChild(btn);
+        }
+        a.appendChild(platWrap);
+
+        const cmdObj = buildCommandObj(s);
+        if(cmdObj){
+          // show mac/linux commands if either supported (render only once even if both present)
+          if((platforms.includes('mac') || platforms.includes('linux')) && (cmdObj.mac || cmdObj.linux)){
+            // prefer mac commands if available, otherwise linux
+            const shellCmds = cmdObj.mac || cmdObj.linux;
+
+            const curlBox = document.createElement('div');
+            curlBox.className = 'copy-box';
+            const curlCmd = document.createElement('div'); curlCmd.className='cmd'; curlCmd.textContent = shellCmds.curl;
+            const curlBtn = document.createElement('button'); curlBtn.className='copy-btn'; curlBtn.type='button'; curlBtn.textContent='Copy (curl)';
+            curlBtn.addEventListener('click', async ()=>{
+              try{ await navigator.clipboard.writeText(curlCmd.textContent); curlBtn.textContent='Copied!'; setTimeout(()=>curlBtn.textContent='Copy (curl)',1500); }
+              catch(e){ fallbackCopy(curlCmd.textContent, curlBtn, 'Copy (curl)'); }
+            });
+            curlBox.appendChild(curlCmd); curlBox.appendChild(curlBtn);
+            a.appendChild(curlBox);
+
+            const wgetBox = document.createElement('div');
+            wgetBox.className = 'copy-box';
+            const wgetCmd = document.createElement('div'); wgetCmd.className='cmd'; wgetCmd.textContent = shellCmds.wget;
+            const wgetBtn = document.createElement('button'); wgetBtn.className='copy-btn'; wgetBtn.type='button'; wgetBtn.textContent='Copy (wget)';
+            wgetBtn.addEventListener('click', async ()=>{
+              try{ await navigator.clipboard.writeText(wgetCmd.textContent); wgetBtn.textContent='Copied!'; setTimeout(()=>wgetBtn.textContent='Copy (wget)',1500); }
+              catch(e){ fallbackCopy(wgetCmd.textContent, wgetBtn, 'Copy (wget)'); }
+            });
+            wgetBox.appendChild(wgetCmd); wgetBox.appendChild(wgetBtn);
+            a.appendChild(wgetBox);
+          }
+
+          // show windows commands if supported
+          if(platforms.includes('windows') && cmdObj.windows){
+            const psBox = document.createElement('div'); psBox.className='copy-box';
+            const psCmd = document.createElement('div'); psCmd.className='cmd'; psCmd.textContent = cmdObj.windows.powershell;
+            const psBtn = document.createElement('button'); psBtn.className='copy-btn'; psBtn.type='button'; psBtn.textContent='Copy (PowerShell)';
+            psBtn.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(psCmd.textContent); psBtn.textContent='Copied!'; setTimeout(()=>psBtn.textContent='Copy (PowerShell)',1500);}catch(e){ fallbackCopy(psCmd.textContent, psBtn, 'Copy (PowerShell)'); }});
+            psBox.appendChild(psCmd); psBox.appendChild(psBtn);
+            a.appendChild(psBox);
+
+            const pwshBox = document.createElement('div'); pwshBox.className='copy-box';
+            const pwshCmd = document.createElement('div'); pwshCmd.className='cmd'; pwshCmd.textContent = cmdObj.windows.pwsh;
+            const pwshBtn = document.createElement('button'); pwshBtn.className='copy-btn'; pwshBtn.type='button'; pwshBtn.textContent='Copy (pwsh)';
+            pwshBtn.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(pwshCmd.textContent); pwshBtn.textContent='Copied!'; setTimeout(()=>pwshBtn.textContent='Copy (pwsh)',1500);}catch(e){ fallbackCopy(pwshCmd.textContent, pwshBtn, 'Copy (pwsh)'); }});
+            pwshBox.appendChild(pwshCmd); pwshBox.appendChild(pwshBtn);
+            a.appendChild(pwshBox);
+          }
+        }
+
+        const footer = document.createElement('div');
+        footer.className = 'card-footer';
+        const left = document.createElement('div'); left.className='meta-left';
+        const right = document.createElement('div'); right.className='meta-right';
+        const footerLeft = [];
+        if(s.version) footerLeft.push(`v${s.version}`);
+        if(s.updated) footerLeft.push(formatDate(s.updated));
+        left.textContent = footerLeft.join(' · ');
+        right.textContent = s.author || '';
+        footer.appendChild(left);
+        footer.appendChild(right);
+        a.appendChild(footer);
+
+        frag.appendChild(a);
+      });
+      resultsEl.appendChild(frag);
+    }
+
+    function fallbackCopy(text, btn, defaultLabel){
+      try{
+        const ta = document.createElement('textarea'); ta.value = text; ta.style.position='fixed'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        btn.textContent='Copied!'; setTimeout(()=>btn.textContent=defaultLabel,1500);
+      }catch(e){ alert('Copy failed.'); }
+    }
+
+    function search(q){
+      const term = (q||'').toLowerCase();
+      const scope = 'all'; // search across all fields; search scope selector removed
+      const list = term ? all.filter(s => {
+        if(scope==='all'){
+          return (s.name && s.name.toLowerCase().includes(term)) ||
+                 (s.description && s.description.toLowerCase().includes(term)) ||
+                 (s.dir && s.dir.toLowerCase().includes(term));
+        }
+        return false;
+      }) : all;
+      render(list, q);
+      metaEl.textContent = `${list.length} scripts shown`;
+    }
+
+    form.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const q = qInput.value.trim();
+      writeQuery(q);
+      search(q);
+    });
+
+    function debounce(fn, wait){ let t; return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), wait); }; }
+
+    const debouncedInput = debounce(()=>{
+      const q = qInput.value.trim();
+      writeQuery(q);
+      search(q);
+    }, 300);
+
+    qInput.addEventListener('input', debouncedInput);
+
+    // Robust scripts.json loading: try relative, then domain root, then raw GitHub
+    (async function(){
+      // Try to discover repository default branch to avoid hardcoding 'main'
+      try {
+        const r = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}`, { cache: 'no-store' });
+        if (r.ok) {
+          const j = await r.json();
+          if (j && j.default_branch) DEFAULT_BRANCH = j.default_branch;
+        }
+      } catch (e) {
+        // ignore and keep fallback
+      }
+      RAW_BASE = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${DEFAULT_BRANCH}`;
+      GITHUB_BLOB_BASE = `https://github.com/${OWNER}/${REPO}/blob/${DEFAULT_BRANCH}`;
+
+      const candidates = [
+        'scripts.json', // relative to this page (works for project pages)
+        `${ORIGIN}/scripts.json`, // domain root (useful for user/organization pages served from root)
+        `${RAW_BASE}/scripts.json` // fallback to raw in the repository
+      ];
+
+      async function fetchJson(url){
+        const r = await fetch(url, { cache: 'no-store' });
+        if(!r.ok) throw new Error(`HTTP ${r.status}`);
+        const txt = await r.text();
+        try{
+          const parsed = JSON.parse(txt);
+          if(!Array.isArray(parsed)) throw new Error('scripts.json must be an array');
+          return parsed;
+        }catch(e){
+          console.error('Failed to parse JSON from', url, e);
+          throw e;
+        }
+      }
+
+      let lastErr = null;
+      for(const c of candidates){
+        try{
+          const ts = Math.floor(Date.now()/60000); // minute resolution to bust cache for local sources
+          const url = c === candidates[2] ? c : `${c}?v=${ts}`; // don't add cache buster for raw GitHub
+          all = await fetchJson(url);
+          metaEl.textContent = `${all.length} scripts available`;
+          console.info('Loaded scripts.json from', url);
+          const q0 = readQuery();
+          if(q0) qInput.value = q0;
+          search(q0);
+          return;
+        }catch(e){ lastErr = e; console.warn('Failed to load scripts.json from', c, e); }
+      }
+
+      // If we get here, all candidates failed
+      all = [];
+      metaEl.textContent = 'No scripts available';
+      console.error('Could not load scripts.json from any candidate:', lastErr);
+    })();
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+[
+  {
+    "dir": "scripts/example",
+    "name": "Example Script",
+    "description": "A cross-platform example script supporting Linux, macOS, and Windows",
+    "author": "wangsyiiz",
+    "version": "1.0.0",
+    "files": "install.sh",
+    "has_readme": true
+  }
+]
